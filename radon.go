@@ -98,7 +98,10 @@ func main() {
 	}*/
 
 	s := newServer(gkserver.NewKeystore())
-	s.LoadKeysFromDir(keyDir, loadKey)
+
+	if err = s.LoadKeysFromDir(keyDir, loadKey); err != nil {
+		panic(err)
+	}
 
 	go func() {
 		c := make(chan os.Signal, 1)
