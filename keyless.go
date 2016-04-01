@@ -20,7 +20,6 @@ import (
 
 const (
 	addr = "127.0.0.1:9674"
-	//addr  = "/var/radon.sock"
 	owner  = "www-data"
 	perms  = 0660
 	keyDir = "/etc/nginx/ssl"
