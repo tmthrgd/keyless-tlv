@@ -83,6 +83,8 @@ func (s server) Handle(buf []byte) (out []byte, err error) {
 		})
 	case gokeyless.OpRSADecrypt, OpRSADecryptRaw:
 		if key, ok = s.Keys.Get(h.Body); !ok {
+			log.Println(gokeyless.ErrKeyNotFound)
+
 			return encodeError(h.ID, gokeyless.ErrKeyNotFound)
 		}
 
