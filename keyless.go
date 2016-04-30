@@ -6,9 +6,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"os/user"
 	"runtime"
-	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -20,8 +18,6 @@ import (
 
 const (
 	addr   = "127.0.0.1:9674"
-	owner  = "www-data"
-	perms  = 0660
 	keyDir = "/etc/nginx/ssl"
 )
 
@@ -44,48 +40,13 @@ func init() {
 }
 
 func main() {
-	if addr[0] == '/' {
-		os.Remove(addr)
-	}
-
 	conn, err := net.ListenPacket("udp", addr)
 
 	if err != nil {
 		panic(err)
 	}
 
-	if _, ok := conn.(*net.UnixConn); ok {
-		defer os.Remove(addr)
-		defer conn.Close()
-
-		user, err := user.Lookup(owner)
-
-		if err != nil {
-			panic(err)
-		}
-
-		uid, err := strconv.Atoi(user.Uid)
-
-		if err != nil {
-			panic(err)
-		}
-
-		gid, err := strconv.Atoi(user.Gid)
-
-		if err != nil {
-			panic(err)
-		}
-
-		if err = syscall.Chown(addr, uid, gid); err != nil {
-			panic(err)
-		}
-
-		if err = syscall.Chmod(addr, perms); err != nil {
-			panic(err)
-		}
-	} else {
-		defer conn.Close()
-	}
+	defer conn.Close()
 
 	/*if pidFile != "" {
 		if f, err := os.Create(pidFile); err != nil {
