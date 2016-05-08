@@ -14,6 +14,7 @@ import (
 	"github.com/cloudflare/cfssl/helpers"
 	"github.com/cloudflare/cfssl/helpers/derhelpers"
 	gkserver "github.com/cloudflare/gokeyless/server"
+	reuseport "github.com/jbenet/go-reuseport"
 )
 
 const (
@@ -40,7 +41,14 @@ func init() {
 }
 
 func main() {
-	conn, err := net.ListenPacket("udp", addr)
+	var conn net.PacketConn
+	var err error
+
+	if reuseport.Available() {
+		conn, err = reuseport.ListenPacket("udp", addr)
+	} else {
+		conn, err = net.ListenPacket("udp", addr)
+	}
 
 	if err != nil {
 		panic(err)
