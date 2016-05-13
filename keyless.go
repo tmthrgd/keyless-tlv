@@ -2,6 +2,8 @@ package main
 
 import (
 	"crypto"
+	"flag"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -15,11 +17,6 @@ import (
 	"github.com/cloudflare/cfssl/helpers/derhelpers"
 	gkserver "github.com/cloudflare/gokeyless/server"
 	reuseport "github.com/jbenet/go-reuseport"
-)
-
-const (
-	addr   = "127.0.0.1:9674"
-	keyDir = "/etc/nginx/ssl"
 )
 
 var bufferPool = &sync.Pool{
@@ -41,6 +38,17 @@ func init() {
 }
 
 func main() {
+	var addr string
+	flag.StringVar(&addr, "addr", "127.0.0.1:9674", "the address to listen on")
+
+	var dir string
+	flag.StringVar(&dir, "dir", "/etc/nginx/ssl", "the directory to serve keys from")
+
+	var pid string
+	flag.StringVar(&pid, "pid", "/run/keyless.pid", "the file to write the pid out to")
+
+	flag.Parse()
+
 	var conn net.PacketConn
 	var err error
 
@@ -56,18 +64,18 @@ func main() {
 
 	defer conn.Close()
 
-	/*if pidFile != "" {
-		if f, err := os.Create(pidFile); err != nil {
-			log.Errorf("error creating pid file: %v", err)
+	if pid != "" {
+		if f, err := os.Create(pid); err != nil {
+			log.Printf("error creating pid file: %v", err)
 		} else {
 			fmt.Fprintf(f, "%d", os.Getpid())
 			f.Close()
 		}
-	}*/
+	}
 
 	s := newServer(gkserver.NewKeystore())
 
-	if err = s.LoadKeysFromDir(keyDir, loadKey); err != nil {
+	if err = s.LoadKeysFromDir(dir, loadKey); err != nil {
 		panic(err)
 	}
 
@@ -78,21 +86,11 @@ func main() {
 		for range c {
 			log.Println("Received SIGHUP, reloading keys...")
 
-			if err := s.LoadKeysFromDir(keyDir, loadKey); err != nil {
+			if err := s.LoadKeysFromDir(dir, loadKey); err != nil {
 				panic(err)
 			}
 		}
 	}()
-
-	/*go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt)
-		signal.Notify(c, syscall.SIGTERM)
-
-		<-c
-
-		os.Exit(1)
-	}()*/
 
 	log.Printf("listening on %s\n", addr)
 
