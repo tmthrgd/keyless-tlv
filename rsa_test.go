@@ -100,7 +100,6 @@ func Benchmark3PrimeRSA2048RawDecrypt(b *testing.B) {
 	}
 }
 
-
 func decodeBase64(in string) []byte {
 	out := make([]byte, base64.StdEncoding.DecodedLen(len(in)))
 	n, err := base64.StdEncoding.Decode(out, []byte(in))

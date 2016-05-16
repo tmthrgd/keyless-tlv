@@ -39,7 +39,7 @@ func init() {
 
 func main() {
 	var addr string
-	flag.StringVar(&addr, "addr", "127.0.0.1:9674", "the address to listen on")
+	flag.StringVar(&addr, "addr", "127.0.0.1:2407", "the address to listen on")
 
 	var dir string
 	flag.StringVar(&dir, "dir", "/etc/nginx/ssl", "the directory to serve keys from")
