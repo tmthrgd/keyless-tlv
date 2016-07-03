@@ -62,7 +62,20 @@ func (s server) Handle(buf []byte) (out []byte, err error) {
 		return encodeError(h.ID, gokeyless.ErrFormat)
 	}
 
-	log.Printf("version:%d.%d id:%d body:%s", h.MajorVers, h.MinorVers, h.ID, h.Body)
+	var ski []byte
+	if h.Body.SKI.Valid() {
+		ski = h.Body.SKI[:]
+	}
+
+	log.Printf("version:%d.%d id:%d body:[Opcode: %s, SKI: %02x, Client IP: %s, Server IP: %s, SigAlgs: %02x, SNI: %s]",
+		h.MajorVers, h.MinorVers,
+		h.ID,
+		h.Body.Opcode,
+		ski,
+		h.Body.ClientIP,
+		h.Body.ServerIP,
+		h.Body.SigAlgs,
+		h.Body.SNI)
 
 	var opts crypto.SignerOpts
 	var key crypto.Signer
