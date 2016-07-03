@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto"
 	"flag"
 	"fmt"
 	"log"
@@ -13,9 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cloudflare/cfssl/helpers"
-	"github.com/cloudflare/cfssl/helpers/derhelpers"
-	gkserver "github.com/cloudflare/gokeyless/server"
 	reuseport "github.com/jbenet/go-reuseport"
 )
 
@@ -23,14 +19,6 @@ var bufferPool = &sync.Pool{
 	New: func() interface{} {
 		return make([]byte, 0, 2*1024)
 	},
-}
-
-func loadKey(in []byte) (crypto.Signer, error) {
-	if priv, err := helpers.ParsePrivateKeyPEM(in); err == nil {
-		return priv, nil
-	}
-
-	return derhelpers.ParsePrivateKeyDER(in)
 }
 
 func init() {
@@ -42,7 +30,7 @@ func main() {
 	flag.StringVar(&addr, "addr", "127.0.0.1:2407", "the address to listen on")
 
 	var dir string
-	flag.StringVar(&dir, "dir", "/etc/nginx/ssl", "the directory to serve keys from")
+	flag.StringVar(&dir, "dir", "/etc/nginx/ssl", "the directory to serve keys and certs from")
 
 	var pid string
 	flag.StringVar(&pid, "pid", "/run/keyless.pid", "the file to write the pid out to")
@@ -73,9 +61,16 @@ func main() {
 		}
 	}
 
-	s := newServer(gkserver.NewKeystore())
+	keys := newKeyLoader()
+	certs := newCertLoader()
 
-	if err = s.LoadKeysFromDir(dir, loadKey); err != nil {
+	s := newServer(keys, certs.CertLoader)
+
+	if err = keys.LoadFromDir(dir); err != nil {
+		panic(err)
+	}
+
+	if err = certs.LoadFromDir(dir); err != nil {
 		panic(err)
 	}
 
@@ -86,7 +81,11 @@ func main() {
 		for range c {
 			log.Println("Received SIGHUP, reloading keys...")
 
-			if err := s.LoadKeysFromDir(dir, loadKey); err != nil {
+			if err := keys.LoadFromDir(dir); err != nil {
+				panic(err)
+			}
+
+			if err := certs.LoadFromDir(dir); err != nil {
 				panic(err)
 			}
 		}
