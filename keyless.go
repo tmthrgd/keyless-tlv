@@ -105,22 +105,32 @@ func main() {
 		}
 
 		go func(buf []byte, addr net.Addr) {
-			defer bufferPool.Put(buf[:0])
-
 			start := time.Now()
 
 			out, err := s.Handle(buf)
 			if err != nil {
 				log.Printf("error: %v\n", err)
+
+				bufferPool.Put(buf[:0])
 				return
 			}
+
+			elapsed := time.Since(start)
+			log.Printf("took %s", elapsed)
 
 			if _, err = conn.WriteTo(out, addr); err != nil {
 				log.Printf("connection error: %v\n", err)
 			}
 
-			elapsed := time.Since(start)
-			log.Printf("took %s", elapsed)
+			for i := 0; i < len(out); i++ {
+				out[i] = 0
+			}
+
+			for i := 0; i < len(buf); i++ {
+				buf[i] = 0
+			}
+
+			bufferPool.Put(buf[:0])
 		}(buf[:n], addr)
 	}
 }
