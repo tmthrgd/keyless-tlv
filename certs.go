@@ -7,7 +7,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"io/ioutil"
-	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -128,8 +127,6 @@ func (certs *certLoader) LoadFromDir(dir string) error {
 		if info.IsDir() || !crtExt.MatchString(info.Name()) {
 			return nil
 		}
-
-		log.Printf("Loading %s...\n", path)
 
 		var in []byte
 		if in, err = ioutil.ReadFile(path); err != nil {
