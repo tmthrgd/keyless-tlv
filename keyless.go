@@ -111,6 +111,10 @@ func main() {
 			if err != nil {
 				log.Printf("error: %v\n", err)
 
+				for i := 0; i < len(buf); i++ {
+					buf[i] = 0
+				}
+
 				bufferPool.Put(buf[:0])
 				return
 			}
