@@ -167,9 +167,8 @@ func (certs *certLoader) LoadFromDir(dir string) error {
 		}
 
 		for _, ip := range x509s[0].IPAddresses {
-			k := string(ip)
-			certs.serverIPs[k] = append(certs.serverIPs[k], ski)
-			sort.Sort(sortSKIs{certs.serverIPs[k], certs.skis})
+			certs.serverIPs[string(ip)] = append(certs.serverIPs[string(ip)], ski)
+			sort.Sort(sortSKIs{certs.serverIPs[string(ip)], certs.skis})
 		}
 
 		certs.Unlock()
