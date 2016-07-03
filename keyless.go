@@ -96,8 +96,8 @@ func main() {
 
 	for {
 		buf := bufferPool.Get().([]byte)
-		n, addr, err := conn.ReadFrom(buf[:cap(buf)])
 
+		n, addr, err := conn.ReadFrom(buf[:cap(buf)])
 		if err != nil {
 			bufferPool.Put(buf[:0])
 
@@ -111,7 +111,6 @@ func main() {
 			start := time.Now()
 
 			out, err := s.Handle(buf)
-
 			if err != nil {
 				log.Printf("error: %v\n", err)
 				return

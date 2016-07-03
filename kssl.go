@@ -166,7 +166,6 @@ func (s server) Handle(buf []byte) (out []byte, err error) {
 	}
 
 	sig, err := key.Sign(rand.Reader, h.Body.Payload, opts)
-
 	if err != nil {
 		log.Printf("%s: Signing error: %v\n", gokeyless.ErrCrypto, err)
 
