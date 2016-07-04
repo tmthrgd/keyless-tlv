@@ -189,15 +189,15 @@ const (
 )
 
 func (certs *certLoader) CertLoader(sigAlgs gokeyless.SigAlgs, serverIP net.IP, sni string) (certChain []byte, err error) {
+	if len(sigAlgs) == 0 || (len(sni) == 0 && serverIP == nil) {
+		return nil, gokeyless.ErrCertNotFound
+	}
+
 	var hasECDSA, hasSHA1RSA,
 		hasSHA256RSA, hasSHA256ECDSA,
 		hasSHA384RSA, hasSHA384ECDSA,
 		hasSHA512RSA, hasSHA512ECDSA,
 		hasSECP256R1, hasSECP384R1, hasSECP521R1 bool
-
-	if len(sigAlgs) == 0 {
-		hasSHA1RSA = true
-	}
 
 	for i := 0; i < len(sigAlgs); i += 2 {
 		hash := sigAlgs[i+0]
@@ -227,6 +227,14 @@ func (certs *certLoader) CertLoader(sigAlgs gokeyless.SigAlgs, serverIP net.IP, 
 		case (uint16(tls.CurveP521) << 8) | sslHashECCurves:
 			hasSECP521R1 = true
 		}
+	}
+
+	if !hasECDSA && !hasSHA1RSA &&
+		!hasSHA256RSA && !hasSHA256ECDSA &&
+		!hasSHA384RSA && !hasSHA384ECDSA &&
+		!hasSHA512RSA && !hasSHA512ECDSA &&
+		!hasSECP256R1 && !hasSECP384R1 && !hasSECP521R1 {
+		return nil, gokeyless.ErrCertNotFound
 	}
 
 	certs.RLock()
