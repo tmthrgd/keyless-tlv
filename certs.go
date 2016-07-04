@@ -118,59 +118,61 @@ func newCertLoader() *certLoader {
 
 var crtExt = regexp.MustCompile(`.+\.(crt|pem)`)
 
-func (certs *certLoader) LoadFromDir(dir string) error {
-	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+func (certs *certLoader) walker(path string, info os.FileInfo, err error) error {
+	if err != nil {
+		return err
+	}
 
-		if info.IsDir() || !crtExt.MatchString(info.Name()) {
-			return nil
-		}
-
-		var in []byte
-		if in, err = ioutil.ReadFile(path); err != nil {
-			return err
-		}
-
-		var x509s []*x509.Certificate
-		if x509s, err = helpers.ParseCertificatesPEM(in); err != nil {
-			return err
-		}
-
-		if len(x509s) == 0 {
-			return errors.New("invalid file")
-		}
-
-		ski, err := gokeyless.GetSKICert(x509s[0])
-		if err != nil {
-			return err
-		}
-
-		certs.Lock()
-		certs.skis[ski] = cert{
-			leaf: x509s[0],
-			pem:  in,
-		}
-
-		if dnsname := x509s[0].Subject.CommonName; len(dnsname) != 0 {
-			certs.snis[dnsname] = append(certs.snis[dnsname], ski)
-			sort.Sort(sortSKIs{certs.snis[dnsname], certs.skis})
-		}
-
-		for _, dnsname := range x509s[0].DNSNames {
-			certs.snis[dnsname] = append(certs.snis[dnsname], ski)
-			sort.Sort(sortSKIs{certs.snis[dnsname], certs.skis})
-		}
-
-		for _, ip := range x509s[0].IPAddresses {
-			certs.serverIPs[string(ip)] = append(certs.serverIPs[string(ip)], ski)
-			sort.Sort(sortSKIs{certs.serverIPs[string(ip)], certs.skis})
-		}
-
-		certs.Unlock()
+	if info.IsDir() || !crtExt.MatchString(info.Name()) {
 		return nil
-	})
+	}
+
+	var in []byte
+	if in, err = ioutil.ReadFile(path); err != nil {
+		return err
+	}
+
+	var x509s []*x509.Certificate
+	if x509s, err = helpers.ParseCertificatesPEM(in); err != nil {
+		return err
+	}
+
+	if len(x509s) == 0 {
+		return errors.New("invalid file")
+	}
+
+	ski, err := gokeyless.GetSKICert(x509s[0])
+	if err != nil {
+		return err
+	}
+
+	certs.Lock()
+	certs.skis[ski] = cert{
+		leaf: x509s[0],
+		pem:  in,
+	}
+
+	if dnsname := x509s[0].Subject.CommonName; len(dnsname) != 0 {
+		certs.snis[dnsname] = append(certs.snis[dnsname], ski)
+		sort.Sort(sortSKIs{certs.snis[dnsname], certs.skis})
+	}
+
+	for _, dnsname := range x509s[0].DNSNames {
+		certs.snis[dnsname] = append(certs.snis[dnsname], ski)
+		sort.Sort(sortSKIs{certs.snis[dnsname], certs.skis})
+	}
+
+	for _, ip := range x509s[0].IPAddresses {
+		certs.serverIPs[string(ip)] = append(certs.serverIPs[string(ip)], ski)
+		sort.Sort(sortSKIs{certs.serverIPs[string(ip)], certs.skis})
+	}
+
+	certs.Unlock()
+	return nil
+}
+
+func (certs *certLoader) LoadFromDir(dir string) error {
+	return filepath.Walk(dir, certs.walker)
 }
 
 const (
