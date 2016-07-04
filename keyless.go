@@ -112,7 +112,7 @@ func main() {
 			if err != nil {
 				log.Printf("error: %v\n", err)
 
-				for i := 0; i < len(buf); i++ {
+				for i := range buf {
 					buf[i] = 0
 				}
 
@@ -128,11 +128,11 @@ func main() {
 				log.Printf("connection error: %v\n", err)
 			}
 
-			for i := 0; i < len(out); i++ {
+			for i := range out {
 				out[i] = 0
 			}
 
-			for i := 0; i < len(buf); i++ {
+			for i := range buf {
 				buf[i] = 0
 			}
 
