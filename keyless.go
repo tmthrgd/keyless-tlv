@@ -122,7 +122,7 @@ func main() {
 
 			elapsed := time.Since(start)
 			log.Printf("elapsed: %s, request: %s, response: %s", elapsed,
-				humanize.Bytes(uint64(len(buf))), humanize.Bytes(uint64(len(out))))
+				humanize.IBytes(uint64(len(buf))), humanize.IBytes(uint64(len(out))))
 
 			if _, err = conn.WriteTo(out, addr); err != nil {
 				log.Printf("connection error: %v\n", err)
