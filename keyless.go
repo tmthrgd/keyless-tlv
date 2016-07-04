@@ -65,8 +65,6 @@ func main() {
 	keys := newKeyLoader()
 	certs := newCertLoader()
 
-	s := newServer(keys, certs.CertLoader)
-
 	if err = keys.LoadFromDir(dir); err != nil {
 		panic(err)
 	}
@@ -108,7 +106,7 @@ func main() {
 		go func(buf []byte, addr net.Addr) {
 			start := time.Now()
 
-			out, err := s.Handle(buf)
+			out, err := handleRequest(buf, keys, certs.CertLoader)
 			if err != nil {
 				log.Printf("error: %v\n", err)
 

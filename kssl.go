@@ -32,16 +32,7 @@ func encodeError(id uint32, err gokeyless.Error) ([]byte, error) {
 	})
 }
 
-type server struct {
-	keys gkserver.Keystore
-	cert gkserver.CertLoader
-}
-
-func newServer(keys gkserver.Keystore, certLoader gkserver.CertLoader) server {
-	return server{keys, certLoader}
-}
-
-func (s server) Handle(buf []byte) (out []byte, err error) {
+func handleRequest(buf []byte, keys gkserver.Keystore, certLoader gkserver.CertLoader) (out []byte, err error) {
 	h := new(gokeyless.Header)
 
 	if err = h.UnmarshalBinary(buf); err != nil {
@@ -88,7 +79,7 @@ func (s server) Handle(buf []byte) (out []byte, err error) {
 			Payload: h.Body.Payload,
 		})
 	case gokeyless.OpCertificateRequest:
-		if s.cert == nil {
+		if certLoader == nil {
 			log.Println(gokeyless.ErrCertNotFound)
 
 			return encodeError(h.ID, gokeyless.ErrCertNotFound)
@@ -100,7 +91,7 @@ func (s server) Handle(buf []byte) (out []byte, err error) {
 			return encodeError(h.ID, gokeyless.ErrFormat)
 		}
 
-		certChain, err := s.cert(h.Body.SigAlgs, h.Body.ServerIP, h.Body.SNI)
+		certChain, err := certLoader(h.Body.SigAlgs, h.Body.ServerIP, h.Body.SNI)
 		switch err := err.(type) {
 		case nil:
 			return encodeResponse(h.ID, certChain)
@@ -114,7 +105,7 @@ func (s server) Handle(buf []byte) (out []byte, err error) {
 			return encodeError(h.ID, gokeyless.ErrInternal)
 		}
 	case gokeyless.OpRSADecrypt, OpRSADecryptRaw:
-		if key, ok = s.keys.Get(h.Body); !ok {
+		if key, ok = keys.Get(h.Body); !ok {
 			log.Println(gokeyless.ErrKeyNotFound)
 
 			return encodeError(h.ID, gokeyless.ErrKeyNotFound)
@@ -176,7 +167,7 @@ func (s server) Handle(buf []byte) (out []byte, err error) {
 		return encodeError(h.ID, gokeyless.ErrBadOpcode)
 	}
 
-	if key, ok = s.keys.Get(h.Body); !ok {
+	if key, ok = keys.Get(h.Body); !ok {
 		log.Println(gokeyless.ErrKeyNotFound)
 
 		return encodeError(h.ID, gokeyless.ErrKeyNotFound)
