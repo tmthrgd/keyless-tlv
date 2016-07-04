@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	reuseport "github.com/jbenet/go-reuseport"
 )
 
@@ -120,7 +121,8 @@ func main() {
 			}
 
 			elapsed := time.Since(start)
-			log.Printf("took %s", elapsed)
+			log.Printf("elapsed: %s, request: %s, response: %s", elapsed,
+				humanize.Bytes(uint64(len(buf))), humanize.Bytes(uint64(len(out))))
 
 			if _, err = conn.WriteTo(out, addr); err != nil {
 				log.Printf("connection error: %v\n", err)
