@@ -32,7 +32,7 @@ func encodeError(id uint32, err gokeyless.Error) ([]byte, error) {
 	})
 }
 
-func handleRequest(buf []byte, keys gkserver.Keystore, certLoader gkserver.CertLoader) (out []byte, err error) {
+func handleRequest(buf []byte, keys gkserver.Keystore, getCert gkserver.GetCertificate) (out []byte, err error) {
 	h := new(gokeyless.Header)
 
 	if err = h.UnmarshalBinary(buf); err != nil {
@@ -58,14 +58,13 @@ func handleRequest(buf []byte, keys gkserver.Keystore, certLoader gkserver.CertL
 		ski = h.Body.SKI[:]
 	}
 
-	log.Printf("version:%d.%d id:%d body:[Opcode: %s, SKI: %02x, Client IP: %s, Server IP: %s, SigAlgs: %02x, SNI: %s]",
+	log.Printf("version:%d.%d id:%d body:[Opcode: %s, SKI: %02x, Client IP: %s, Server IP: %s, SNI: %s]",
 		h.MajorVers, h.MinorVers,
 		h.ID,
 		h.Body.Opcode,
 		ski,
 		h.Body.ClientIP,
 		h.Body.ServerIP,
-		h.Body.SigAlgs,
 		h.Body.SNI)
 
 	var opts crypto.SignerOpts
@@ -78,20 +77,14 @@ func handleRequest(buf []byte, keys gkserver.Keystore, certLoader gkserver.CertL
 			Opcode:  gokeyless.OpPong,
 			Payload: h.Body.Payload,
 		})
-	case gokeyless.OpCertificateRequest:
-		if certLoader == nil {
+	case gokeyless.OpGetCertificate:
+		if getCert == nil {
 			log.Println(gokeyless.ErrCertNotFound)
 
 			return encodeError(h.ID, gokeyless.ErrCertNotFound)
 		}
 
-		if !h.Body.SigAlgs.Valid() {
-			log.Println(gokeyless.ErrFormat)
-
-			return encodeError(h.ID, gokeyless.ErrFormat)
-		}
-
-		certChain, err := certLoader(h.Body.SigAlgs, h.Body.ServerIP, h.Body.SNI)
+		certChain, err := getCert(h.Body)
 		switch err := err.(type) {
 		case nil:
 			return encodeResponse(h.ID, certChain)
