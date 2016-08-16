@@ -151,6 +151,12 @@ func handleRequest(buf []byte, keys gkserver.Keystore, getCert gkserver.GetCerti
 		opts = crypto.SHA384
 	case gokeyless.OpRSASignSHA512, gokeyless.OpECDSASignSHA512:
 		opts = crypto.SHA512
+	case gokeyless.OpRSAPSSSignSHA256:
+		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA256}
+	case gokeyless.OpRSAPSSSignSHA384:
+		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA384}
+	case gokeyless.OpRSAPSSSignSHA512:
+		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA512}
 	//case gokeyless.OpActivate:
 	case gokeyless.OpPong, gokeyless.OpResponse, gokeyless.OpError:
 		log.Printf("%s: %s is not a valid request Opcode\n", gokeyless.ErrUnexpectedOpcode, h.Body.Opcode)
@@ -173,7 +179,10 @@ func handleRequest(buf []byte, keys gkserver.Keystore, getCert gkserver.GetCerti
 		gokeyless.OpRSASignSHA224,
 		gokeyless.OpRSASignSHA256,
 		gokeyless.OpRSASignSHA384,
-		gokeyless.OpRSASignSHA512:
+		gokeyless.OpRSASignSHA512,
+		gokeyless.OpRSAPSSSignSHA256,
+		gokeyless.OpRSAPSSSignSHA384,
+		gokeyless.OpRSAPSSSignSHA512:
 		if _, ok := key.Public().(*rsa.PublicKey); !ok {
 			log.Printf("%s: request is RSA, but key isn't\n", gokeyless.ErrCrypto)
 
