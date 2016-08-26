@@ -20,8 +20,8 @@ import (
 )
 
 type cert struct {
-	leaf *x509.Certificate
-	pem  []byte
+	leaf    *x509.Certificate
+	payload []byte
 }
 
 type sortSKIs struct {
@@ -117,6 +117,24 @@ func newCertLoader() *certLoader {
 	}
 }
 
+func tlvBytes(tag byte, data []byte) []byte {
+	b := make([]byte, 3)
+	b[0] = tag
+	binary.BigEndian.PutUint16(b[1:3], uint16(len(data)))
+	return append(b, data...)
+}
+
+type pldTag byte
+
+const (
+	// tagSKI (1) must occur first.
+	tagSKI pldTag = iota + 1
+	// tagLeaf (2) must occur only once.
+	tagLeaf
+	// tagChain (3) will occur once, in order, for each extra certificate in the chain.
+	tagChain
+)
+
 var crtExt = regexp.MustCompile(`.+\.(crt|pem)`)
 
 func (certs *certLoader) walker(path string, info os.FileInfo, err error) error {
@@ -147,10 +165,17 @@ func (certs *certLoader) walker(path string, info os.FileInfo, err error) error 
 		return err
 	}
 
+	b := tlvBytes(byte(tagSKI), ski[:])
+	b = append(b, tlvBytes(byte(tagLeaf), x509s[0].Raw)...)
+
+	for i := 1; i < len(x509s); i++ {
+		b = append(b, tlvBytes(byte(tagChain), x509s[i].Raw)...)
+	}
+
 	certs.Lock()
 	certs.skis[ski] = cert{
-		leaf: x509s[0],
-		pem:  in,
+		leaf:    x509s[0],
+		payload: b,
 	}
 
 	if dnsname := x509s[0].Subject.CommonName; len(dnsname) != 0 {
@@ -310,7 +335,7 @@ func (certs *certLoader) GetCertificate(op *gokeyless.Operation) (certChain []by
 			(ok && pub.Curve == elliptic.P256() && !hasSECP256R1) ||
 			(ok && pub.Curve == elliptic.P384() && !hasSECP384R1) ||
 			(ok && pub.Curve == elliptic.P521() && !hasSECP521R1)) {
-			certChain, err = cert.pem, nil
+			certChain, err = cert.payload, nil
 			break
 		}
 	}
