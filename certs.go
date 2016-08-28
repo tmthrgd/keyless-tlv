@@ -205,9 +205,10 @@ const (
 	sslSignatureECDSA = 3
 )
 
-func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []byte) (outSKI SKI, out []byte, err error, err2 Error) {
+func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []byte) (out []byte, outSKI SKI, err error, err2 Error) {
 	if len(payload) == 0 || (len(sni) == 0 && serverIP == nil) {
-		return nilSKI, nil, nil, ErrorCertNotFound
+		err2 = ErrorCertNotFound
+		return
 	}
 
 	var hasECDSA, hasSHA1RSA,
@@ -221,28 +222,31 @@ func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []b
 	seen := make(map[gcTag]struct{})
 
 	for r.Len() != 0 {
-		tag, err := r.ReadByte()
-		if err != nil {
-			return nilSKI, nil, err, ErrorInternal
+		var tag byte
+		if tag, err = r.ReadByte(); err != nil {
+			err2 = ErrorFormat
+			return
 		}
 
 		var length uint16
 		if err = binary.Read(r, binary.BigEndian, &length); err != nil {
-			return nilSKI, nil, err, ErrorInternal
+			err2 = ErrorFormat
+			return
 		}
 
 		if int(length) > r.Len() {
-			return nilSKI, nil, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len()), ErrorFormat
+			return nil, nilSKI, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len()), ErrorFormat
 		}
 
 		if _, ok := seen[gcTag(tag)]; ok {
-			return nilSKI, nil, fmt.Errorf("tag %s seen multiple times", tag), ErrorFormat
+			return nil, nilSKI, fmt.Errorf("tag %s seen multiple times", tag), ErrorFormat
 		}
 		seen[gcTag(tag)] = struct{}{}
 
-		offset, err := r.Seek(int64(length), io.SeekCurrent)
-		if err != nil {
-			return nilSKI, nil, err, ErrorInternal
+		var offset int64
+		if offset, err = r.Seek(int64(length), io.SeekCurrent); err != nil {
+			err2 = ErrorInternal
+			return
 		}
 
 		data := payload[offset-int64(length) : offset]
@@ -250,7 +254,7 @@ func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []b
 		switch gcTag(tag) {
 		case tagSignatureAlgorithms:
 			if len(data)%2 != 0 {
-				return nilSKI, nil, fmt.Errorf("invalid data for tagSignatureAlgorithms: %02x", data), ErrorFormat
+				return nil, nilSKI, fmt.Errorf("invalid data for tagSignatureAlgorithms: %02x", data), ErrorFormat
 			}
 
 			for j := 0; j < len(data); j += 2 {
@@ -276,7 +280,7 @@ func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []b
 			}
 		case tagSupportedGroups:
 			if len(data)%2 != 0 {
-				return nilSKI, nil, fmt.Errorf("invalid data for tagSupportedGroups: %02x", data), ErrorFormat
+				return nil, nilSKI, fmt.Errorf("invalid data for tagSupportedGroups: %02x", data), ErrorFormat
 			}
 
 			for j := 0; j < len(data); j += 2 {
@@ -291,21 +295,23 @@ func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []b
 			}
 		case tagECDSACipher:
 			if len(data) != 1 {
-				return nilSKI, nil, fmt.Errorf("invalid data for tagECDSACipher: %02x", data), ErrorFormat
+				return nil, nilSKI, fmt.Errorf("invalid data for tagECDSACipher: %02x", data), ErrorFormat
 			}
 
 			hasECDSA = data[0] != 0
 		default:
-			return nilSKI, nil, fmt.Errorf("unknown tag: %s", tag), ErrorFormat
+			return nil, nilSKI, fmt.Errorf("unknown tag: %s", tag), ErrorFormat
 		}
 	}
+
+	err2 = ErrorCertNotFound
 
 	if !hasECDSA && !hasSHA1RSA &&
 		!hasSHA256RSA && !hasSHA256ECDSA &&
 		!hasSHA384RSA && !hasSHA384ECDSA &&
 		!hasSHA512RSA && !hasSHA512ECDSA &&
 		!hasSECP256R1 && !hasSECP384R1 && !hasSECP521R1 {
-		return nilSKI, nil, nil, ErrorCertNotFound
+		return
 	}
 
 	certs.RLock()
@@ -314,8 +320,6 @@ func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []b
 	if !ok {
 		skis = certs.serverIPs[string(serverIP)]
 	}
-
-	err2 = ErrorCertNotFound
 
 	for _, ski := range skis {
 		cert := certs.skis[ski]

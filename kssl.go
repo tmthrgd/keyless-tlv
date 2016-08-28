@@ -17,7 +17,7 @@ import (
 
 //go:generate stringer -type=Tag,Op -output=kssl_string.go
 
-type GetCertificate func(sni []byte, serverIP net.IP, payload []byte) (SKI, []byte, error, Error)
+type GetCertificate func(sni []byte, serverIP net.IP, payload []byte) ([]byte, SKI, error, Error)
 type GetKey func(ski SKI) (crypto.Signer, bool)
 
 const (
@@ -129,7 +129,7 @@ func (e Error) Error() string {
 	}
 }
 
-func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey GetKey) (outSKI SKI, out []byte, err error, err2 Error) {
+func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey GetKey) (out []byte, outSKI SKI, err error, err2 Error) {
 	var opcode Op
 	var payload []byte
 	var ski SKI
@@ -139,28 +139,31 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 	seen := make(map[Tag]struct{})
 
 	for r.Len() != 0 {
-		tag, err := r.ReadByte()
-		if err != nil {
-			return nilSKI, nil, err, ErrorFormat
+		var tag byte
+		if tag, err = r.ReadByte(); err != nil {
+			err2 = ErrorFormat
+			return
 		}
 
 		var length uint16
 		if err = binary.Read(r, binary.BigEndian, &length); err != nil {
-			return nilSKI, nil, err, ErrorFormat
+			err2 = ErrorFormat
+			return
 		}
 
 		if int(length) > r.Len() {
-			return nilSKI, nil, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len()), ErrorFormat
+			return nil, nilSKI, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len()), ErrorFormat
 		}
 
 		if _, ok := seen[Tag(tag)]; ok {
-			return nilSKI, nil, fmt.Errorf("tag %s seen multiple times", tag), ErrorFormat
+			return nil, nilSKI, fmt.Errorf("tag %s seen multiple times", tag), ErrorFormat
 		}
 		seen[Tag(tag)] = struct{}{}
 
-		offset, err := r.Seek(int64(length), io.SeekCurrent)
-		if err != nil {
-			return nilSKI, nil, err, ErrorInternal
+		var offset int64
+		if offset, err = r.Seek(int64(length), io.SeekCurrent); err != nil {
+			err2 = ErrorInternal
+			return
 		}
 
 		data := in[offset-int64(length) : offset]
@@ -168,31 +171,36 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 		switch Tag(tag) {
 		case TagDigest:
 			if len(data) != sha256.Size {
-				return nilSKI, nil, nil, ErrorFormat
+				err2 = ErrorFormat
+				return
 			}
 		case TagSNI:
 			sni = data
 		case TagClientIP:
 			if len(data) != net.IPv4len && len(data) != net.IPv6len {
-				return nilSKI, nil, nil, ErrorFormat
+				err2 = ErrorFormat
+				return
 			}
 
 			clientIP = data
 		case TagSKI:
 			if len(data) != sha1.Size {
-				return nilSKI, nil, nil, ErrorFormat
+				err2 = ErrorFormat
+				return
 			}
 
 			copy(ski[:], data)
 		case TagServerIP:
 			if len(data) != net.IPv4len && len(data) != net.IPv6len {
-				return nilSKI, nil, nil, ErrorFormat
+				err2 = ErrorFormat
+				return
 			}
 
 			serverIP = data
 		case TagOpcode:
 			if len(data) != 1 {
-				return nilSKI, nil, nil, ErrorFormat
+				err2 = ErrorFormat
+				return
 			}
 
 			opcode = Op(data[0])
@@ -201,7 +209,7 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 		case TagPadding:
 			// ignore; should this be checked to ensure it is zero?
 		default:
-			return nilSKI, nil, fmt.Errorf("unknown tag: %s", tag), ErrorFormat
+			return nil, nilSKI, fmt.Errorf("unknown tag: %s", tag), ErrorFormat
 		}
 	}
 
@@ -218,25 +226,29 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 
 	switch opcode {
 	case OpPing:
-		return nilSKI, payload, nil, ErrorNone
+		out = payload
+		return
 	case OpGetCertificate:
 		if getCert == nil {
-			return nilSKI, nil, nil, ErrorCertNotFound
+			err2 = ErrorCertNotFound
+			return
 		}
 
 		return getCert(sni, serverIP, payload)
 	case OpRSADecrypt, OpRSADecryptRaw:
 		if getKey == nil {
-			return nilSKI, nil, nil, ErrorKeyNotFound
+			err2 = ErrorKeyNotFound
+			return
 		}
 
 		if key, ok = getKey(ski); !ok {
-			return nilSKI, nil, nil, ErrorKeyNotFound
+			err2 = ErrorKeyNotFound
+			return
 		}
 
 		rsaKey, ok := key.(*rsa.PrivateKey)
 		if !ok {
-			return nilSKI, nil, fmt.Errorf("Key is not RSA"), ErrorCryptoFailed
+			return nil, nilSKI, fmt.Errorf("Key is not RSA"), ErrorCryptoFailed
 		}
 
 		if opcode == OpRSADecryptRaw {
@@ -270,17 +282,21 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA512}
 	//case gokeyless.OpActivate:
 	case OpPong, OpResponse, OpError:
-		return nilSKI, nil, nil, ErrorUnexpectedOpcode
+		err2 = ErrorUnexpectedOpcode
+		return
 	default:
-		return nilSKI, nil, nil, ErrorBadOpcode
+		err2 = ErrorBadOpcode
+		return
 	}
 
 	if getKey == nil {
-		return nilSKI, nil, nil, ErrorKeyNotFound
+		err2 = ErrorKeyNotFound
+		return
 	}
 
 	if key, ok = getKey(ski); !ok {
-		return nilSKI, nil, nil, ErrorKeyNotFound
+		err2 = ErrorKeyNotFound
+		return
 	}
 
 	// Ensure we don't perform an ECDSA/RSA sign for an RSA/ECDSA request.
@@ -288,20 +304,19 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 	case OpRSASignMD5SHA1, OpRSASignSHA1, OpRSASignSHA224, OpRSASignSHA256, OpRSASignSHA384, OpRSASignSHA512,
 		OpRSAPSSSignSHA256, OpRSAPSSSignSHA384, OpRSAPSSSignSHA512:
 		if _, ok := key.Public().(*rsa.PublicKey); !ok {
-			return nilSKI, nil, fmt.Errorf("request is RSA, but key isn't"), ErrorCryptoFailed
+			return nil, nilSKI, fmt.Errorf("request is RSA, but key isn't"), ErrorCryptoFailed
 		}
 	case OpECDSASignMD5SHA1, OpECDSASignSHA1, OpECDSASignSHA224, OpECDSASignSHA256, OpECDSASignSHA384, OpECDSASignSHA512:
 		if _, ok := key.Public().(*ecdsa.PublicKey); !ok {
-			return nilSKI, nil, fmt.Errorf("request is ECDSA, but key isn't"), ErrorCryptoFailed
+			return nil, nilSKI, fmt.Errorf("request is ECDSA, but key isn't"), ErrorCryptoFailed
 		}
 	}
 
-	sig, err := key.Sign(rand.Reader, payload, opts)
-	if err != nil {
-		return nilSKI, nil, err, ErrorCryptoFailed
+	if out, err = key.Sign(rand.Reader, payload, opts); err != nil {
+		err2 = ErrorCryptoFailed
 	}
 
-	return nilSKI, sig, nil, ErrorNone
+	return
 }
 
 func handleRequest(buf []byte, getCert GetCertificate, getKey GetKey) (out []byte, err error) {
@@ -339,7 +354,7 @@ func handleRequest(buf []byte, getCert GetCertificate, getKey GetKey) (out []byt
 	var ski SKI
 	var payload []byte
 	if err2 == ErrorNone {
-		if ski, payload, err, err2 = processRequest(buf, r, getCert, getKey); err != nil {
+		if payload, ski, err, err2 = processRequest(buf, r, getCert, getKey); err != nil {
 			log.Println(err)
 
 			if err2 == ErrorNone {
