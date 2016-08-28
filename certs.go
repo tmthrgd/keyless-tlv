@@ -119,17 +119,6 @@ func newCertLoader() *certLoader {
 	}
 }
 
-type pldTag byte
-
-const (
-	// tagSKI (1) must occur first.
-	tagSKI pldTag = iota + 1
-	// tagLeaf (2) must occur only once.
-	tagLeaf
-	// tagChain (3) will occur once, in order, for each extra certificate in the chain.
-	tagChain
-)
-
 var crtExt = regexp.MustCompile(`.+\.(crt|pem)`)
 
 func (certs *certLoader) walker(path string, info os.FileInfo, err error) error {
@@ -162,18 +151,9 @@ func (certs *certLoader) walker(path string, info os.FileInfo, err error) error 
 
 	var b bytes.Buffer
 
-	b.WriteByte(byte(tagSKI))
-	binary.Write(&b, binary.BigEndian, uint16(len(ski)))
-	b.Write(ski[:])
-
-	b.WriteByte(byte(tagLeaf))
-	binary.Write(&b, binary.BigEndian, uint16(len(x509s[0].Raw)))
-	b.Write(x509s[0].Raw)
-
-	for i := 1; i < len(x509s); i++ {
-		b.WriteByte(byte(tagChain))
-		binary.Write(&b, binary.BigEndian, uint16(len(x509s[i].Raw)))
-		b.Write(x509s[i].Raw)
+	for _, x509 := range x509s {
+		binary.Write(&b, binary.BigEndian, uint16(len(x509.Raw)))
+		b.Write(x509.Raw)
 	}
 
 	certs.Lock()
@@ -225,9 +205,9 @@ const (
 	sslSignatureECDSA = 3
 )
 
-func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []byte) (out []byte, err error, err2 Error) {
+func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []byte) (outSKI SKI, out []byte, err error, err2 Error) {
 	if len(payload) == 0 || (len(sni) == 0 && serverIP == nil) {
-		return nil, nil, ErrorCertNotFound
+		return nilSKI, nil, nil, ErrorCertNotFound
 	}
 
 	var hasECDSA, hasSHA1RSA,
@@ -243,26 +223,26 @@ func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []b
 	for r.Len() != 0 {
 		tag, err := r.ReadByte()
 		if err != nil {
-			return nil, err, ErrorInternal
+			return nilSKI, nil, err, ErrorInternal
 		}
 
 		var length uint16
 		if err = binary.Read(r, binary.BigEndian, &length); err != nil {
-			return nil, err, ErrorInternal
+			return nilSKI, nil, err, ErrorInternal
 		}
 
 		if int(length) > r.Len() {
-			return nil, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len()), ErrorFormat
+			return nilSKI, nil, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len()), ErrorFormat
 		}
 
 		if _, ok := seen[gcTag(tag)]; ok {
-			return nil, fmt.Errorf("tag %s seen multiple times", tag), ErrorFormat
+			return nilSKI, nil, fmt.Errorf("tag %s seen multiple times", tag), ErrorFormat
 		}
 		seen[gcTag(tag)] = struct{}{}
 
 		offset, err := r.Seek(int64(length), io.SeekCurrent)
 		if err != nil {
-			return nil, err, ErrorInternal
+			return nilSKI, nil, err, ErrorInternal
 		}
 
 		data := payload[offset-int64(length) : offset]
@@ -270,7 +250,7 @@ func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []b
 		switch gcTag(tag) {
 		case tagSignatureAlgorithms:
 			if len(data)%2 != 0 {
-				return nil, fmt.Errorf("invalid data for tagSignatureAlgorithms: %02x", data), ErrorFormat
+				return nilSKI, nil, fmt.Errorf("invalid data for tagSignatureAlgorithms: %02x", data), ErrorFormat
 			}
 
 			for j := 0; j < len(data); j += 2 {
@@ -296,7 +276,7 @@ func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []b
 			}
 		case tagSupportedGroups:
 			if len(data)%2 != 0 {
-				return nil, fmt.Errorf("invalid data for tagSupportedGroups: %02x", data), ErrorFormat
+				return nilSKI, nil, fmt.Errorf("invalid data for tagSupportedGroups: %02x", data), ErrorFormat
 			}
 
 			for j := 0; j < len(data); j += 2 {
@@ -311,12 +291,12 @@ func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []b
 			}
 		case tagECDSACipher:
 			if len(data) != 1 {
-				return nil, fmt.Errorf("invalid data for tagECDSACipher: %02x", data), ErrorFormat
+				return nilSKI, nil, fmt.Errorf("invalid data for tagECDSACipher: %02x", data), ErrorFormat
 			}
 
 			hasECDSA = data[0] != 0
 		default:
-			return nil, fmt.Errorf("unknown tag: %s", tag), ErrorFormat
+			return nilSKI, nil, fmt.Errorf("unknown tag: %s", tag), ErrorFormat
 		}
 	}
 
@@ -325,7 +305,7 @@ func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []b
 		!hasSHA384RSA && !hasSHA384ECDSA &&
 		!hasSHA512RSA && !hasSHA512ECDSA &&
 		!hasSECP256R1 && !hasSECP384R1 && !hasSECP521R1 {
-		return nil, nil, ErrorCertNotFound
+		return nilSKI, nil, nil, ErrorCertNotFound
 	}
 
 	certs.RLock()
@@ -352,7 +332,7 @@ func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []b
 			(ok && pub.Curve == elliptic.P256() && !hasSECP256R1) ||
 			(ok && pub.Curve == elliptic.P384() && !hasSECP384R1) ||
 			(ok && pub.Curve == elliptic.P521() && !hasSECP521R1)) {
-			out, err2 = cert.payload, ErrorNone
+			out, outSKI, err2 = cert.payload, ski, ErrorNone
 			break
 		}
 	}
