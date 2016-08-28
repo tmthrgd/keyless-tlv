@@ -17,7 +17,7 @@ import (
 
 //go:generate stringer -type=Tag,Op -output=kssl_string.go
 
-type GetCertificate func(sni []byte, serverIP net.IP, payload []byte) ([]byte, SKI, error, Error)
+type GetCertificate func(ski SKI, sni []byte, serverIP net.IP, payload []byte) ([]byte, SKI, error, Error)
 type GetKey func(ski SKI) (crypto.Signer, bool)
 
 const (
@@ -237,7 +237,7 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 			return
 		}
 
-		out, outSKI, err, err2 = getCert(sni, serverIP, payload)
+		out, outSKI, err, err2 = getCert(ski, sni, serverIP, payload)
 		return
 	case OpRSADecrypt, OpRSADecryptRaw:
 		if getKey == nil {

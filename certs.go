@@ -205,7 +205,18 @@ const (
 	sslSignatureECDSA = 3
 )
 
-func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []byte) (out []byte, outSKI SKI, err error, err2 Error) {
+func (certs *certLoader) GetCertificate(ski SKI, sni []byte, serverIP net.IP, payload []byte) (out []byte, outSKI SKI, err error, err2 Error) {
+	if ski.Valid() {
+		certs.RLock()
+
+		if cert, ok := certs.skis[ski]; ok {
+			out, outSKI = cert.payload, ski
+		}
+
+		certs.RUnlock()
+		return
+	}
+
 	if len(payload) == 0 || (len(sni) == 0 && serverIP == nil) {
 		err2 = ErrorCertNotFound
 		return
