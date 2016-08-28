@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/tls"
@@ -117,13 +118,6 @@ func newCertLoader() *certLoader {
 	}
 }
 
-func tlvBytes(tag byte, data []byte) []byte {
-	b := make([]byte, 3)
-	b[0] = tag
-	binary.BigEndian.PutUint16(b[1:3], uint16(len(data)))
-	return append(b, data...)
-}
-
 type pldTag byte
 
 const (
@@ -165,17 +159,26 @@ func (certs *certLoader) walker(path string, info os.FileInfo, err error) error 
 		return err
 	}
 
-	b := tlvBytes(byte(tagSKI), ski[:])
-	b = append(b, tlvBytes(byte(tagLeaf), x509s[0].Raw)...)
+	var b bytes.Buffer
+
+	b.WriteByte(byte(tagSKI))
+	binary.Write(&b, binary.BigEndian, uint16(len(ski)))
+	b.Write(ski[:])
+
+	b.WriteByte(byte(tagLeaf))
+	binary.Write(&b, binary.BigEndian, uint16(len(x509s[0].Raw)))
+	b.Write(x509s[0].Raw)
 
 	for i := 1; i < len(x509s); i++ {
-		b = append(b, tlvBytes(byte(tagChain), x509s[i].Raw)...)
+		b.WriteByte(byte(tagChain))
+		binary.Write(&b, binary.BigEndian, uint16(len(x509s[i].Raw)))
+		b.Write(x509s[i].Raw)
 	}
 
 	certs.Lock()
 	certs.skis[ski] = cert{
 		leaf:    x509s[0],
-		payload: b,
+		payload: b.Bytes(),
 	}
 
 	if dnsname := x509s[0].Subject.CommonName; len(dnsname) != 0 {
