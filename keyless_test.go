@@ -126,7 +126,7 @@ func fromHexChar(c byte) (b byte, skip bool, ok bool) {
 		return c - 'a' + 10, false, true
 	case 'A' <= c && c <= 'F':
 		return c - 'A' + 10, false, true
-	case c == ' ':
+	case c == ' ' || c == '\t':
 		return 0, true, false
 	}
 
