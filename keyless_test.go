@@ -118,19 +118,19 @@ func TestRunner(t *testing.T) {
 	}
 }
 
-func fromHexChar(c byte) (byte, bool) {
+func fromHexChar(c byte) (b byte, skip bool, ok bool) {
 	switch {
 	case '0' <= c && c <= '9':
-		return c - '0', true
+		return c - '0', false, true
 	case 'a' <= c && c <= 'f':
-		return c - 'a' + 10, true
+		return c - 'a' + 10, false, true
 	case 'A' <= c && c <= 'F':
-		return c - 'A' + 10, true
+		return c - 'A' + 10, false, true
 	case c == ' ':
-		return 0xff, true
+		return 0, true, false
 	}
 
-	return 0, false
+	return 0, false, false
 }
 
 func parseTestCase(t *testing.T, path string) (request []byte, response []byte) {
@@ -161,20 +161,18 @@ func parseTestCase(t *testing.T, path string) (request []byte, response []byte) 
 		}
 
 		for i := 0; i < len(data); i++ {
-			a, ok := fromHexChar(data[i])
-			if !ok {
-				t.Fatalf("invalid format: expected hex or space, got %c", data[i])
-			}
-
-			if a == 0xff {
+			a, skip, ok := fromHexChar(data[i])
+			if skip {
 				continue
+			} else if !ok {
+				t.Fatalf("invalid format: expected hex or space, got %c", data[i])
 			}
 
 			i++
 
-			b, ok := fromHexChar(data[i])
-			if !ok || b == 0xff {
-				t.Fatalf("invalid format: expected hex or space, got %c", data[i])
+			b, _, ok := fromHexChar(data[i])
+			if !ok {
+				t.Fatalf("invalid format: expected hex, got %c", data[i])
 			}
 
 			if isResp {
