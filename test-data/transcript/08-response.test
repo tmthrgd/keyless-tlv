@@ -1,0 +1,16 @@
+01 00       ; version
+00 04       ; length
+00 00 00 08 ; id
+11          ; opcode tag
+00 01       ; length
+f0          ; response
+---
+01 00       ; version
+00 08       ; length
+00 00 00 08 ; id
+11          ; opcode tag
+00 01       ; length
+ff          ; error
+12          ; payload tag
+00 01       ; length
+06          ; unexpected opcode
