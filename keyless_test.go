@@ -106,7 +106,7 @@ func TestRunner(t *testing.T) {
 				logger.T = t
 			}()
 
-			(&testRunnerCase{addr, path, rel}).Test(tt)
+			runTestCase(tt, path, addr)
 		})
 		return nil
 	}); err != nil {
@@ -116,10 +116,6 @@ func TestRunner(t *testing.T) {
 	if err := cmd.Process.Kill(); err != nil {
 		t.Error(err)
 	}
-}
-
-type testRunnerCase struct {
-	addr, path, name string
 }
 
 func fromHexChar(c byte) (byte, bool) {
@@ -137,8 +133,8 @@ func fromHexChar(c byte) (byte, bool) {
 	return 0, false
 }
 
-func (c *testRunnerCase) parse(t *testing.T) (request []byte, response []byte) {
-	f, err := os.Open(c.path)
+func parseTestCase(t *testing.T, path string) (request []byte, response []byte) {
+	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,14 +192,13 @@ func (c *testRunnerCase) parse(t *testing.T) (request []byte, response []byte) {
 	return req.Bytes(), resp.Bytes()
 }
 
-func (c *testRunnerCase) Test(t *testing.T) {
-	req, resp := c.parse(t)
+func runTestCase(t *testing.T, path, addr string) {
+	req, resp := parseTestCase(t, path)
 
-	t.Log(c.name)
 	t.Logf("-> %x", req)
 	t.Logf("<- %x", resp)
 
-	conn, err := net.Dial("udp", c.addr)
+	conn, err := net.Dial("udp", addr)
 	if err != nil {
 		t.Fatal(err)
 	}
