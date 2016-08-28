@@ -234,25 +234,16 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 			return nilSKI, nil, nil, ErrorKeyNotFound
 		}
 
-		if _, ok = key.Public().(*rsa.PublicKey); !ok {
+		rsaKey, ok := key.(*rsa.PrivateKey)
+		if !ok {
 			return nilSKI, nil, fmt.Errorf("Key is not RSA"), ErrorCryptoFailed
 		}
 
 		var ptxt []byte
 
 		if opcode == OpRSADecryptRaw {
-			rsaKey, ok := key.(*rsa.PrivateKey)
-			if !ok {
-				return nilSKI, nil, fmt.Errorf("Key is not rsa.PrivateKey"), ErrorCryptoFailed
-			}
-
 			ptxt, err = rsaRawDecrypt(rand.Reader, rsaKey, payload)
 		} else {
-			rsaKey, ok := key.(crypto.Decrypter)
-			if !ok {
-				return nilSKI, nil, fmt.Errorf("Key is not Decrypter"), ErrorCryptoFailed
-			}
-
 			ptxt, err = rsaKey.Decrypt(rand.Reader, payload, nil)
 		}
 
