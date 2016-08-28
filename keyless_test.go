@@ -54,7 +54,7 @@ func TestMain(m *testing.M) {
 }
 
 func testAddress() string {
-	return fmt.Sprintf("127.%d.%d.%d:%d", nameRand.Intn(256), nameRand.Intn(256), nameRand.Intn(256-1)+1, nameRand.Intn(65536-49152)+49152)
+	return fmt.Sprintf("127.%d.%d.%d:%d", nameRand.Intn(256), nameRand.Intn(256), nameRand.Intn(255-1)+1, nameRand.Intn(65536-49152)+49152)
 }
 
 func testCommand(addr string) *exec.Cmd {
