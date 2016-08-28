@@ -319,7 +319,7 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 	return
 }
 
-func handleRequest(buf []byte, getCert GetCertificate, getKey GetKey) (out []byte, err error) {
+func handleRequest(buf []byte, getCert GetCertificate, getKey GetKey, usePadding bool) (out []byte, err error) {
 	r := bytes.NewReader(buf)
 
 	major, err := r.ReadByte()
@@ -398,7 +398,7 @@ func handleRequest(buf []byte, getCert GetCertificate, getKey GetKey) (out []byt
 		b.WriteByte(byte(err2))
 	}
 
-	if b.Len() < PadTo {
+	if usePadding && b.Len() < PadTo {
 		toPad := PadTo - b.Len()
 
 		b.WriteByte(byte(TagPadding))

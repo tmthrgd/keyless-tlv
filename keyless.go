@@ -36,6 +36,9 @@ func main() {
 	var pid string
 	flag.StringVar(&pid, "pid", "/run/keyless.pid", "the file to write the pid out to")
 
+	var padding bool
+	flag.BoolVar(&padding, "padding", true, "use padding for responses")
+
 	flag.Parse()
 
 	var conn net.PacketConn
@@ -106,7 +109,7 @@ func main() {
 		go func(buf []byte, addr net.Addr) {
 			start := time.Now()
 
-			out, err := handleRequest(buf, certs.GetCertificate, keys.GetKey)
+			out, err := handleRequest(buf, certs.GetCertificate, keys.GetKey, padding)
 			if err != nil {
 				log.Printf("error: %v\n", err)
 
