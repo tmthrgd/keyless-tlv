@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
@@ -293,13 +294,16 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 		return nilSKI, nil, nil, ErrorKeyNotFound
 	}
 
-	// Ensure we don't perform an ECDSA sign for an RSA request.
+	// Ensure we don't perform an ECDSA/RSA sign for an RSA/ECDSA request.
 	switch opcode {
-	case OpRSASignMD5SHA1, OpRSASignSHA1,
-		OpRSASignSHA224, OpRSASignSHA256, OpRSASignSHA384, OpRSASignSHA512,
+	case OpRSASignMD5SHA1, OpRSASignSHA1, OpRSASignSHA224, OpRSASignSHA256, OpRSASignSHA384, OpRSASignSHA512,
 		OpRSAPSSSignSHA256, OpRSAPSSSignSHA384, OpRSAPSSSignSHA512:
 		if _, ok := key.Public().(*rsa.PublicKey); !ok {
 			return nilSKI, nil, fmt.Errorf("request is RSA, but key isn't"), ErrorCryptoFailed
+		}
+	case OpECDSASignMD5SHA1, OpECDSASignSHA1, OpECDSASignSHA224, OpECDSASignSHA256, OpECDSASignSHA384, OpECDSASignSHA512:
+		if _, ok := key.Public().(*ecdsa.PublicKey); !ok {
+			return nilSKI, nil, fmt.Errorf("request is ECDSA, but key isn't"), ErrorCryptoFailed
 		}
 	}
 
