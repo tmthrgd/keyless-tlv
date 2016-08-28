@@ -231,10 +231,6 @@ func (c *testRunnerCase) Test(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if n != len(resp) {
-		t.Fatalf("invalid length, expected %d, got %d", len(resp), n)
-	}
-
 	got = got[:n]
 
 	if !bytes.Equal(got, resp) {
