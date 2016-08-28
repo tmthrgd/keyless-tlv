@@ -239,19 +239,17 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 			return nilSKI, nil, fmt.Errorf("Key is not RSA"), ErrorCryptoFailed
 		}
 
-		var ptxt []byte
-
 		if opcode == OpRSADecryptRaw {
-			ptxt, err = rsaRawDecrypt(rand.Reader, rsaKey, payload)
+			out, err = rsaRawDecrypt(rand.Reader, rsaKey, payload)
 		} else {
-			ptxt, err = rsaKey.Decrypt(rand.Reader, payload, nil)
+			out, err = rsaKey.Decrypt(rand.Reader, payload, nil)
 		}
 
 		if err != nil {
-			return nilSKI, nil, err, ErrorCryptoFailed
+			err2 = ErrorCryptoFailed
 		}
 
-		return nilSKI, ptxt, nil, ErrorNone
+		return
 	case OpRSASignMD5SHA1, OpECDSASignMD5SHA1:
 		opts = crypto.MD5SHA1
 	case OpRSASignSHA1, OpECDSASignSHA1:
