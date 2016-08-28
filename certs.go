@@ -211,6 +211,8 @@ func (certs *certLoader) GetCertificate(ski SKI, sni []byte, serverIP net.IP, pa
 
 		if cert, ok := certs.skis[ski]; ok {
 			out, outSKI = cert.payload, ski
+		} else {
+			err2 = ErrorCertNotFound
 		}
 
 		certs.RUnlock()
