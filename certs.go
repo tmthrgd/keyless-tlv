@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -235,25 +236,42 @@ func (certs *certLoader) GetCertificate(op *gokeyless.Operation) (certChain []by
 		hasSHA512RSA, hasSHA512ECDSA,
 		hasSECP256R1, hasSECP384R1, hasSECP521R1 bool
 
-	var length int
-	seen := make(map[gcTag]bool)
+	r := bytes.NewReader(op.Payload)
 
-	for i := 0; i+2 < len(op.Payload); i += 3 + length {
-		tag := gcTag(op.Payload[i])
+	seen := make(map[gcTag]struct{})
 
-		length = int(binary.BigEndian.Uint16(op.Payload[i+1 : i+3]))
-		if i+3+length > len(op.Payload) {
-			return nil, fmt.Errorf("%s length is %dB beyond end of body", tag, i+3+length-len(op.Payload))
+	for {
+		tag, err := r.ReadByte()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+
+			return nil, err
 		}
 
-		data := op.Payload[i+3 : i+3+length]
+		var length uint16
+		if err = binary.Read(r, binary.BigEndian, &length); err != nil {
+			return nil, err
+		}
 
-		if seen[tag] {
+		if int(length) > r.Len() {
+			return nil, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len())
+		}
+
+		if _, ok := seen[gcTag(tag)]; ok {
 			return nil, fmt.Errorf("tag %s seen multiple times", tag)
 		}
-		seen[tag] = true
+		seen[gcTag(tag)] = struct{}{}
 
-		switch tag {
+		offset, err := r.Seek(int64(length), io.SeekCurrent)
+		if err != nil {
+			return nil, err
+		}
+
+		data := op.Payload[offset-int64(length) : offset]
+
+		switch gcTag(tag) {
 		case tagSignatureAlgorithms:
 			if len(data)%2 != 0 {
 				return nil, fmt.Errorf("invalid data for tagSignatureAlgorithms: %02x", data)
