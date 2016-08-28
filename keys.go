@@ -2,33 +2,82 @@ package main
 
 import (
 	"crypto"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sync"
 
 	"github.com/cloudflare/cfssl/helpers"
 	"github.com/cloudflare/cfssl/helpers/derhelpers"
-	gkserver "github.com/cloudflare/gokeyless/server"
+	"github.com/cloudflare/gokeyless"
 )
 
+var keyExt = regexp.MustCompile(`.+\.key`)
+
 type keyLoader struct {
-	gkserver.Keystore
-	gsrv gkserver.Server
+	sync.RWMutex
+	skis map[gokeyless.SKI]crypto.Signer
 }
 
 func newKeyLoader() *keyLoader {
-	keys := gkserver.NewKeystore()
 	return &keyLoader{
-		Keystore: keys,
-		gsrv:     gkserver.Server{Keys: keys},
+		skis: make(map[gokeyless.SKI]crypto.Signer),
 	}
 }
 
-func (*keyLoader) loadKey(in []byte) (crypto.Signer, error) {
-	if priv, err := helpers.ParsePrivateKeyPEM(in); err == nil {
-		return priv, nil
+func (k *keyLoader) Add(op *gokeyless.Operation, priv crypto.Signer) error {
+	ski, err := gokeyless.GetSKI(priv.Public())
+	if err != nil {
+		return err
 	}
 
-	return derhelpers.ParsePrivateKeyDER(in)
+	k.Lock()
+	k.skis[ski] = priv
+	k.Unlock()
+
+	return nil
+}
+
+func (k *keyLoader) Get(op *gokeyless.Operation) (priv crypto.Signer, ok bool) {
+	if !op.SKI.Valid() {
+		return nil, false
+	}
+
+	k.RLock()
+	priv, ok = k.skis[op.SKI]
+	k.RUnlock()
+
+	return
+}
+
+func (k *keyLoader) walker(path string, info os.FileInfo, err error) error {
+	if err != nil {
+		return err
+	}
+
+	if info.IsDir() || !keyExt.MatchString(info.Name()) {
+		return nil
+	}
+
+	in, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
+	}
+
+	priv, err := helpers.ParsePrivateKeyPEM(in)
+	if err != nil {
+		priv, err = derhelpers.ParsePrivateKeyDER(in)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	k.Add(nil, priv)
+	return nil
 }
 
 func (k *keyLoader) LoadFromDir(dir string) error {
-	return k.gsrv.LoadKeysFromDir(dir, k.loadKey)
+	return filepath.Walk(dir, k.walker)
 }

@@ -141,13 +141,13 @@ func (certs *certLoader) walker(path string, info os.FileInfo, err error) error 
 		return nil
 	}
 
-	var in []byte
-	if in, err = ioutil.ReadFile(path); err != nil {
+	in, err := ioutil.ReadFile(path)
+	if err != nil {
 		return err
 	}
 
-	var x509s []*x509.Certificate
-	if x509s, err = helpers.ParseCertificatesPEM(in); err != nil {
+	x509s, err := helpers.ParseCertificatesPEM(in)
+	if err != nil {
 		return err
 	}
 
