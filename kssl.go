@@ -129,7 +129,7 @@ func (e Error) Error() string {
 	}
 }
 
-func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey GetKey) (out []byte, outSKI SKI, err error, err2 Error) {
+func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey GetKey) (out []byte, outSKI SKI, ping bool, err error, err2 Error) {
 	var opcode Op
 	var payload []byte
 	var ski SKI
@@ -152,11 +152,13 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 		}
 
 		if int(length) > r.Len() {
-			return nil, nilSKI, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len()), ErrorFormat
+			err, err2 = fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len()), ErrorFormat
+			return
 		}
 
 		if _, ok := seen[Tag(tag)]; ok {
-			return nil, nilSKI, fmt.Errorf("tag %s seen multiple times", tag), ErrorFormat
+			err, err2 = fmt.Errorf("tag %s seen multiple times", tag), ErrorFormat
+			return
 		}
 		seen[Tag(tag)] = struct{}{}
 
@@ -209,7 +211,8 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 		case TagPadding:
 			// ignore; should this be checked to ensure it is zero?
 		default:
-			return nil, nilSKI, fmt.Errorf("unknown tag: %s", tag), ErrorFormat
+			err, err2 = fmt.Errorf("unknown tag: %s", tag), ErrorFormat
+			return
 		}
 	}
 
@@ -226,7 +229,7 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 
 	switch opcode {
 	case OpPing:
-		out = payload
+		out, ping = payload, true
 		return
 	case OpGetCertificate:
 		if getCert == nil {
@@ -234,7 +237,8 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 			return
 		}
 
-		return getCert(sni, serverIP, payload)
+		out, outSKI, err, err2 = getCert(sni, serverIP, payload)
+		return
 	case OpRSADecrypt, OpRSADecryptRaw:
 		if getKey == nil {
 			err2 = ErrorKeyNotFound
@@ -248,7 +252,8 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 
 		rsaKey, ok := key.(*rsa.PrivateKey)
 		if !ok {
-			return nil, nilSKI, fmt.Errorf("Key is not RSA"), ErrorCryptoFailed
+			err, err2 = fmt.Errorf("Key is not RSA"), ErrorCryptoFailed
+			return
 		}
 
 		if opcode == OpRSADecryptRaw {
@@ -304,11 +309,13 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 	case OpRSASignMD5SHA1, OpRSASignSHA1, OpRSASignSHA224, OpRSASignSHA256, OpRSASignSHA384, OpRSASignSHA512,
 		OpRSAPSSSignSHA256, OpRSAPSSSignSHA384, OpRSAPSSSignSHA512:
 		if _, ok := key.Public().(*rsa.PublicKey); !ok {
-			return nil, nilSKI, fmt.Errorf("request is RSA, but key isn't"), ErrorCryptoFailed
+			err, err2 = fmt.Errorf("request is RSA, but key isn't"), ErrorCryptoFailed
+			return
 		}
 	case OpECDSASignMD5SHA1, OpECDSASignSHA1, OpECDSASignSHA224, OpECDSASignSHA256, OpECDSASignSHA384, OpECDSASignSHA512:
 		if _, ok := key.Public().(*ecdsa.PublicKey); !ok {
-			return nil, nilSKI, fmt.Errorf("request is ECDSA, but key isn't"), ErrorCryptoFailed
+			err, err2 = fmt.Errorf("request is ECDSA, but key isn't"), ErrorCryptoFailed
+			return
 		}
 	}
 
@@ -351,10 +358,12 @@ func handleRequest(buf []byte, getCert GetCertificate, getKey GetKey, usePadding
 		err2 = ErrorFormat
 	}
 
-	var ski SKI
 	var payload []byte
+	var ski SKI
+	var ping bool
+
 	if err2 == ErrorNone {
-		if payload, ski, err, err2 = processRequest(buf, r, getCert, getKey); err != nil {
+		if payload, ski, ping, err, err2 = processRequest(buf, r, getCert, getKey); err != nil {
 			log.Println(err)
 
 			if err2 == ErrorNone {
@@ -375,7 +384,11 @@ func handleRequest(buf []byte, getCert GetCertificate, getKey GetKey, usePadding
 	binary.Write(b, binary.BigEndian, uint16(1))
 
 	if err2 == ErrorNone {
-		b.WriteByte(byte(OpResponse))
+		if ping {
+			b.WriteByte(byte(OpPong))
+		} else {
+			b.WriteByte(byte(OpResponse))
+		}
 	} else {
 		b.WriteByte(byte(OpError))
 	}
