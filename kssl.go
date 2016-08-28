@@ -49,7 +49,7 @@ type Op byte
 const (
 	// Decrypt data using RSA with or without padding
 	OpRSADecrypt    Op = 0x01
-	OpRSADecryptRaw    = 0x08
+	OpRSADecryptRaw Op = 0x08
 
 	// Sign data using RSA
 	OpRSASignMD5SHA1 Op = 0x02
