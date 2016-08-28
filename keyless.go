@@ -106,7 +106,7 @@ func main() {
 		go func(buf []byte, addr net.Addr) {
 			start := time.Now()
 
-			out, err := handleRequest(buf, keys, certs.GetCertificate)
+			out, err := handleRequest(buf, certs.GetCertificate, keys.GetKey)
 			if err != nil {
 				log.Printf("error: %v\n", err)
 

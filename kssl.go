@@ -1,201 +1,396 @@
 package main
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/binary"
+	"fmt"
+	"io"
 	"log"
-
-	"github.com/cloudflare/gokeyless"
-	gkserver "github.com/cloudflare/gokeyless/server"
+	"net"
 )
 
-const OpRSADecryptRaw gokeyless.Op = 0x08
+//go:generate stringer -type=Tag,Op -output=kssl_string.go
 
-func encodeOperation(id uint32, operation *gokeyless.Operation) ([]byte, error) {
-	h := gokeyless.NewHeader(operation)
-	h.ID = id
-	return h.MarshalBinary()
+type GetCertificate func(sni []byte, serverIP net.IP, payload []byte) ([]byte, error, Error)
+type GetKey func(ski SKI) (crypto.Signer, bool)
+
+const (
+	VersionMajor = 1
+	VersionMinor = 0
+
+	HeaderLength = 8
+
+	PadTo = 1024
+)
+
+var padding [PadTo]byte
+
+type Tag byte
+
+const (
+	TagDigest   Tag = 0x01 // [Deprecated]: SHA256 hash of RSA public key
+	TagSNI      Tag = 0x02 // Server Name Identifier
+	TagClientIP Tag = 0x03 // Client IP Address
+	TagSKI      Tag = 0x04 // SHA1 hash of Subject Key Info
+	TagServerIP Tag = 0x05 // Server IP Address
+	TagOpcode   Tag = 0x11 // Request operation code (see Op)
+	TagPayload  Tag = 0x12 // Request/response payload
+	TagPadding  Tag = 0x20 // Padding
+)
+
+type Op byte
+
+const (
+	// Decrypt data using RSA with or without padding
+	OpRSADecrypt    Op = 0x01
+	OpRSADecryptRaw    = 0x08
+
+	// Sign data using RSA
+	OpRSASignMD5SHA1 Op = 0x02
+	OpRSASignSHA1    Op = 0x03
+	OpRSASignSHA224  Op = 0x04
+	OpRSASignSHA256  Op = 0x05
+	OpRSASignSHA384  Op = 0x06
+	OpRSASignSHA512  Op = 0x07
+
+	// Sign data using RSA-PSS
+	OpRSAPSSSignSHA256 Op = 0x35
+	OpRSAPSSSignSHA384 Op = 0x36
+	OpRSAPSSSignSHA512 Op = 0x37
+
+	// Sign data using ECDSA
+	OpECDSASignMD5SHA1 Op = 0x12
+	OpECDSASignSHA1    Op = 0x13
+	OpECDSASignSHA224  Op = 0x14
+	OpECDSASignSHA256  Op = 0x15
+	OpECDSASignSHA384  Op = 0x16
+	OpECDSASignSHA512  Op = 0x17
+
+	// Request a certificate and chain
+	OpGetCertificate Op = 0x20
+
+	// [Deprecated]: A test message
+	OpPing Op = 0xF1
+	OpPong Op = 0xF2
+
+	// [Deprecated]: A verification message
+	OpActivate Op = 0xF3
+
+	// Response
+	OpResponse Op = 0xF0
+	OpError    Op = 0xFF
+)
+
+type Error byte
+
+const (
+	ErrorNone             Error = iota // No error
+	ErrorCryptoFailed                  // Cryptographic error
+	ErrorKeyNotFound                   // Private key not found
+	ErrorDiskRead                      // [Deprecated]: Disk read failure
+	ErrorVersionMismatch               // Client-Server version mismatch
+	ErrorBadOpcode                     // Invalid/unsupported opcode
+	ErrorUnexpectedOpcode              // Opcode sent at wrong time/direction
+	ErrorFormat                        // Malformed message
+	ErrorInternal                      // Other internal error
+	ErrorCertNotFound                  // Certificate not found
+)
+
+func (e Error) Error() string {
+	switch e {
+	case ErrorNone:
+		return "no error"
+	case ErrorCryptoFailed:
+		return "cryptography error"
+	case ErrorKeyNotFound:
+		return "key not found"
+	case ErrorDiskRead:
+		return "disk read failure"
+	case ErrorVersionMismatch:
+		return "version mismatch"
+	case ErrorBadOpcode:
+		return "bad opcode"
+	case ErrorUnexpectedOpcode:
+		return "unexpected opcode"
+	case ErrorFormat:
+		return "malformed message"
+	case ErrorInternal:
+		return "internal error"
+	case ErrorCertNotFound:
+		return "certificate not found"
+	default:
+		return "unkown error"
+	}
 }
 
-func encodeResponse(id uint32, payload []byte) ([]byte, error) {
-	return encodeOperation(id, &gokeyless.Operation{
-		Opcode:  gokeyless.OpResponse,
-		Payload: payload,
-	})
-}
+func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey GetKey) (out []byte, err error, err2 Error) {
+	var opcode Op
+	var payload []byte
+	var ski SKI
+	var clientIP, serverIP net.IP
+	var sni []byte
 
-func encodeError(id uint32, err gokeyless.Error) ([]byte, error) {
-	return encodeOperation(id, &gokeyless.Operation{
-		Opcode:  gokeyless.OpError,
-		Payload: []byte{byte(err)},
-	})
-}
+	seen := make(map[Tag]struct{})
 
-func handleRequest(buf []byte, keys gkserver.Keystore, getCert gkserver.GetCertificate) (out []byte, err error) {
-	h := new(gokeyless.Header)
+	for r.Len() != 0 {
+		tag, err := r.ReadByte()
+		if err != nil {
+			return nil, err, ErrorFormat
+		}
 
-	if err = h.UnmarshalBinary(buf); err != nil {
-		return
+		var length uint16
+		if err = binary.Read(r, binary.BigEndian, &length); err != nil {
+			return nil, err, ErrorFormat
+		}
+
+		if int(length) > r.Len() {
+			return nil, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len()), ErrorFormat
+		}
+
+		if _, ok := seen[Tag(tag)]; ok {
+			return nil, fmt.Errorf("tag %s seen multiple times", tag), ErrorFormat
+		}
+		seen[Tag(tag)] = struct{}{}
+
+		offset, err := r.Seek(int64(length), io.SeekCurrent)
+		if err != nil {
+			return nil, err, ErrorInternal
+		}
+
+		data := in[offset-int64(length) : offset]
+
+		switch Tag(tag) {
+		case TagDigest:
+			if len(data) != sha256.Size {
+				return nil, nil, ErrorFormat
+			}
+		case TagSNI:
+			sni = data
+		case TagClientIP:
+			if len(data) != net.IPv4len && len(data) != net.IPv6len {
+				return nil, nil, ErrorFormat
+			}
+
+			clientIP = data
+		case TagSKI:
+			if len(data) != sha1.Size {
+				return nil, nil, ErrorFormat
+			}
+
+			copy(ski[:], data)
+		case TagServerIP:
+			if len(data) != net.IPv4len && len(data) != net.IPv6len {
+				return nil, nil, ErrorFormat
+			}
+
+			serverIP = data
+		case TagOpcode:
+			if len(data) != 1 {
+				return nil, nil, ErrorFormat
+			}
+
+			opcode = Op(data[0])
+		case TagPayload:
+			payload = data
+		case TagPadding:
+			// ignore; should this be checked to ensure it is zero?
+		default:
+			return nil, fmt.Errorf("unknown tag: %s", tag), ErrorFormat
+		}
 	}
 
-	if 8+int(h.Length) > len(buf) {
-		log.Printf("%s: Header length is %dB beyond end of buffer", gokeyless.ErrFormat, 8+int(h.Length)-len(buf))
-
-		return encodeError(h.ID, gokeyless.ErrFormat)
+	var ski2 []byte
+	if ski.Valid() {
+		ski2 = ski[:]
 	}
 
-	h.Body = new(gokeyless.Operation)
-
-	if err = h.Body.UnmarshalBinary(buf[8 : 8+h.Length]); err != nil {
-		log.Println(err)
-
-		return encodeError(h.ID, gokeyless.ErrFormat)
-	}
-
-	var ski []byte
-	if h.Body.SKI.Valid() {
-		ski = h.Body.SKI[:]
-	}
-
-	log.Printf("version:%d.%d id:%d body:[Opcode: %s, SKI: %02x, Client IP: %s, Server IP: %s, SNI: %s]",
-		h.MajorVers, h.MinorVers,
-		h.ID,
-		h.Body.Opcode,
-		ski,
-		h.Body.ClientIP,
-		h.Body.ServerIP,
-		h.Body.SNI)
+	log.Printf("Opcode: %s, SKI: %02x, Client IP: %s, Server IP: %s, SNI: %s", opcode, ski2, clientIP, serverIP, sni)
 
 	var opts crypto.SignerOpts
 	var key crypto.Signer
 	var ok bool
 
-	switch h.Body.Opcode {
-	case gokeyless.OpPing:
-		return encodeOperation(h.ID, &gokeyless.Operation{
-			Opcode:  gokeyless.OpPong,
-			Payload: h.Body.Payload,
-		})
-	case gokeyless.OpGetCertificate:
+	switch opcode {
+	case OpPing:
+		return payload, nil, ErrorNone
+	case OpGetCertificate:
 		if getCert == nil {
-			log.Println(gokeyless.ErrCertNotFound)
-
-			return encodeError(h.ID, gokeyless.ErrCertNotFound)
+			return nil, nil, ErrorCertNotFound
 		}
 
-		certChain, err := getCert(h.Body)
-		switch err := err.(type) {
-		case nil:
-			return encodeResponse(h.ID, certChain)
-		case gokeyless.Error:
-			log.Println(err)
-
-			return encodeError(h.ID, err)
-		default:
-			log.Println(err)
-
-			return encodeError(h.ID, gokeyless.ErrInternal)
+		return getCert(sni, serverIP, payload)
+	case OpRSADecrypt, OpRSADecryptRaw:
+		if getKey == nil {
+			return nil, nil, ErrorKeyNotFound
 		}
-	case gokeyless.OpRSADecrypt, OpRSADecryptRaw:
-		if key, ok = keys.Get(h.Body); !ok {
-			log.Println(gokeyless.ErrKeyNotFound)
 
-			return encodeError(h.ID, gokeyless.ErrKeyNotFound)
+		if key, ok = getKey(ski); !ok {
+			return nil, nil, ErrorKeyNotFound
 		}
 
 		if _, ok = key.Public().(*rsa.PublicKey); !ok {
-			log.Printf("%s: Key is not RSA\n", gokeyless.ErrCrypto)
-
-			return encodeError(h.ID, gokeyless.ErrCrypto)
+			return nil, fmt.Errorf("Key is not RSA"), ErrorCryptoFailed
 		}
 
 		var ptxt []byte
 
-		if h.Body.Opcode == OpRSADecryptRaw {
+		if opcode == OpRSADecryptRaw {
 			rsaKey, ok := key.(*rsa.PrivateKey)
 			if !ok {
-				log.Printf("%s: Key is not rsa.PrivateKey\n", gokeyless.ErrCrypto)
-
-				return encodeError(h.ID, gokeyless.ErrCrypto)
+				return nil, fmt.Errorf("Key is not rsa.PrivateKey"), ErrorCryptoFailed
 			}
 
-			ptxt, err = rsaRawDecrypt(rand.Reader, rsaKey, h.Body.Payload)
+			ptxt, err = rsaRawDecrypt(rand.Reader, rsaKey, payload)
 		} else {
 			rsaKey, ok := key.(crypto.Decrypter)
 			if !ok {
-				log.Printf("%s: Key is not Decrypter\n", gokeyless.ErrCrypto)
-
-				return encodeError(h.ID, gokeyless.ErrCrypto)
+				return nil, fmt.Errorf("Key is not Decrypter"), ErrorCryptoFailed
 			}
 
-			ptxt, err = rsaKey.Decrypt(rand.Reader, h.Body.Payload, nil)
+			ptxt, err = rsaKey.Decrypt(rand.Reader, payload, nil)
 		}
 
 		if err != nil {
-			log.Printf("%s: Decryption error: %v", gokeyless.ErrCrypto, err)
-
-			return encodeError(h.ID, gokeyless.ErrCrypto)
+			return nil, err, ErrorCryptoFailed
 		}
 
-		return encodeResponse(h.ID, ptxt)
-	case gokeyless.OpRSASignMD5SHA1, gokeyless.OpECDSASignMD5SHA1:
+		return ptxt, nil, ErrorNone
+	case OpRSASignMD5SHA1, OpECDSASignMD5SHA1:
 		opts = crypto.MD5SHA1
-	case gokeyless.OpRSASignSHA1, gokeyless.OpECDSASignSHA1:
+	case OpRSASignSHA1, OpECDSASignSHA1:
 		opts = crypto.SHA1
-	case gokeyless.OpRSASignSHA224, gokeyless.OpECDSASignSHA224:
+	case OpRSASignSHA224, OpECDSASignSHA224:
 		opts = crypto.SHA224
-	case gokeyless.OpRSASignSHA256, gokeyless.OpECDSASignSHA256:
+	case OpRSASignSHA256, OpECDSASignSHA256:
 		opts = crypto.SHA256
-	case gokeyless.OpRSASignSHA384, gokeyless.OpECDSASignSHA384:
+	case OpRSASignSHA384, OpECDSASignSHA384:
 		opts = crypto.SHA384
-	case gokeyless.OpRSASignSHA512, gokeyless.OpECDSASignSHA512:
+	case OpRSASignSHA512, OpECDSASignSHA512:
 		opts = crypto.SHA512
-	case gokeyless.OpRSAPSSSignSHA256:
+	case OpRSAPSSSignSHA256:
 		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA256}
-	case gokeyless.OpRSAPSSSignSHA384:
+	case OpRSAPSSSignSHA384:
 		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA384}
-	case gokeyless.OpRSAPSSSignSHA512:
+	case OpRSAPSSSignSHA512:
 		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA512}
 	//case gokeyless.OpActivate:
-	case gokeyless.OpPong, gokeyless.OpResponse, gokeyless.OpError:
-		log.Printf("%s: %s is not a valid request Opcode\n", gokeyless.ErrUnexpectedOpcode, h.Body.Opcode)
-
-		return encodeError(h.ID, gokeyless.ErrUnexpectedOpcode)
+	case OpPong, OpResponse, OpError:
+		return nil, nil, ErrorUnexpectedOpcode
 	default:
-		return encodeError(h.ID, gokeyless.ErrBadOpcode)
+		return nil, nil, ErrorBadOpcode
 	}
 
-	if key, ok = keys.Get(h.Body); !ok {
-		log.Println(gokeyless.ErrKeyNotFound)
+	if getKey == nil {
+		return nil, nil, ErrorKeyNotFound
+	}
 
-		return encodeError(h.ID, gokeyless.ErrKeyNotFound)
+	if key, ok = getKey(ski); !ok {
+		return nil, nil, ErrorKeyNotFound
 	}
 
 	// Ensure we don't perform an ECDSA sign for an RSA request.
-	switch h.Body.Opcode {
-	case gokeyless.OpRSASignMD5SHA1,
-		gokeyless.OpRSASignSHA1,
-		gokeyless.OpRSASignSHA224,
-		gokeyless.OpRSASignSHA256,
-		gokeyless.OpRSASignSHA384,
-		gokeyless.OpRSASignSHA512,
-		gokeyless.OpRSAPSSSignSHA256,
-		gokeyless.OpRSAPSSSignSHA384,
-		gokeyless.OpRSAPSSSignSHA512:
+	switch opcode {
+	case OpRSASignMD5SHA1, OpRSASignSHA1,
+		OpRSASignSHA224, OpRSASignSHA256, OpRSASignSHA384, OpRSASignSHA512,
+		OpRSAPSSSignSHA256, OpRSAPSSSignSHA384, OpRSAPSSSignSHA512:
 		if _, ok := key.Public().(*rsa.PublicKey); !ok {
-			log.Printf("%s: request is RSA, but key isn't\n", gokeyless.ErrCrypto)
-
-			return encodeError(h.ID, gokeyless.ErrCrypto)
+			return nil, fmt.Errorf("request is RSA, but key isn't"), ErrorCryptoFailed
 		}
 	}
 
-	sig, err := key.Sign(rand.Reader, h.Body.Payload, opts)
+	sig, err := key.Sign(rand.Reader, payload, opts)
 	if err != nil {
-		log.Printf("%s: Signing error: %v\n", gokeyless.ErrCrypto, err)
-
-		return encodeError(h.ID, gokeyless.ErrCrypto)
+		return nil, err, ErrorCryptoFailed
 	}
 
-	return encodeResponse(h.ID, sig)
+	return sig, nil, ErrorNone
+}
+
+func handleRequest(buf []byte, getCert GetCertificate, getKey GetKey) (out []byte, err error) {
+	r := bytes.NewReader(buf)
+
+	major, err := r.ReadByte()
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := r.ReadByte(); err != nil {
+		return nil, err
+	}
+
+	var length uint16
+	if err := binary.Read(r, binary.BigEndian, &length); err != nil {
+		return nil, err
+	}
+
+	var id uint32
+	if err := binary.Read(r, binary.BigEndian, &id); err != nil {
+		return nil, err
+	}
+
+	err2 := ErrorNone
+
+	if major != VersionMajor {
+		err2 = ErrorVersionMismatch
+	}
+
+	if err2 == ErrorNone && int(length) != r.Len() {
+		err2 = ErrorFormat
+	}
+
+	var payload []byte
+	if err2 == ErrorNone {
+		if payload, err, err2 = processRequest(buf, r, getCert, getKey); err != nil {
+			log.Println(err)
+
+			if err2 == ErrorNone {
+				err2 = ErrorInternal
+			}
+		}
+	}
+
+	b := bytes.NewBuffer(buf[:0])
+
+	b.WriteByte(VersionMajor)
+	b.WriteByte(VersionMinor)
+	binary.Write(b, binary.BigEndian, uint16(0)) // length placeholder
+	binary.Write(b, binary.BigEndian, id)
+
+	// opcode tag
+	b.WriteByte(byte(TagOpcode))
+	binary.Write(b, binary.BigEndian, uint16(1))
+
+	if err2 == ErrorNone {
+		b.WriteByte(byte(OpResponse))
+	} else {
+		b.WriteByte(byte(OpError))
+	}
+
+	// payload tag
+	b.WriteByte(byte(TagPayload))
+
+	if err2 == ErrorNone {
+		binary.Write(b, binary.BigEndian, uint16(len(payload)))
+		b.Write(payload)
+	} else {
+		binary.Write(b, binary.BigEndian, uint16(1))
+		b.WriteByte(byte(err2))
+	}
+
+	if b.Len() < PadTo {
+		toPad := PadTo - b.Len()
+
+		b.WriteByte(byte(TagPadding))
+		binary.Write(b, binary.BigEndian, uint16(toPad))
+		b.Write(padding[:toPad])
+	}
+
+	out = b.Bytes()
+	binary.BigEndian.PutUint16(out[2:], uint16(b.Len()-HeaderLength))
+	return
 }

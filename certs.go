@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,7 +19,6 @@ import (
 	"sync"
 
 	"github.com/cloudflare/cfssl/helpers"
-	"github.com/cloudflare/gokeyless"
 )
 
 type cert struct {
@@ -27,8 +27,8 @@ type cert struct {
 }
 
 type sortSKIs struct {
-	skis []gokeyless.SKI
-	cert map[gokeyless.SKI]cert
+	skis []SKI
+	cert map[SKI]cert
 }
 
 func (s sortSKIs) Len() int {
@@ -106,16 +106,16 @@ func (s sortSKIs) Swap(i, j int) {
 
 type certLoader struct {
 	sync.RWMutex
-	skis      map[gokeyless.SKI]cert
-	snis      map[string][]gokeyless.SKI
-	serverIPs map[string][]gokeyless.SKI
+	skis      map[SKI]cert
+	snis      map[string][]SKI
+	serverIPs map[string][]SKI
 }
 
 func newCertLoader() *certLoader {
 	return &certLoader{
-		skis:      make(map[gokeyless.SKI]cert),
-		snis:      make(map[string][]gokeyless.SKI),
-		serverIPs: make(map[string][]gokeyless.SKI),
+		skis:      make(map[SKI]cert),
+		snis:      make(map[string][]SKI),
+		serverIPs: make(map[string][]SKI),
 	}
 }
 
@@ -155,7 +155,7 @@ func (certs *certLoader) walker(path string, info os.FileInfo, err error) error 
 		return errors.New("invalid file")
 	}
 
-	ski, err := gokeyless.GetSKICert(x509s[0])
+	ski, err := GetSKIForCert(x509s[0])
 	if err != nil {
 		return err
 	}
@@ -225,9 +225,9 @@ const (
 	sslSignatureECDSA = 3
 )
 
-func (certs *certLoader) GetCertificate(op *gokeyless.Operation) (certChain []byte, err error) {
-	if len(op.Payload) == 0 || (len(op.SNI) == 0 && op.ServerIP == nil) {
-		return nil, gokeyless.ErrCertNotFound
+func (certs *certLoader) GetCertificate(sni []byte, serverIP net.IP, payload []byte) (out []byte, err error, err2 Error) {
+	if len(payload) == 0 || (len(sni) == 0 && serverIP == nil) {
+		return nil, nil, ErrorCertNotFound
 	}
 
 	var hasECDSA, hasSHA1RSA,
@@ -236,45 +236,41 @@ func (certs *certLoader) GetCertificate(op *gokeyless.Operation) (certChain []by
 		hasSHA512RSA, hasSHA512ECDSA,
 		hasSECP256R1, hasSECP384R1, hasSECP521R1 bool
 
-	r := bytes.NewReader(op.Payload)
+	r := bytes.NewReader(payload)
 
 	seen := make(map[gcTag]struct{})
 
-	for {
+	for r.Len() != 0 {
 		tag, err := r.ReadByte()
 		if err != nil {
-			if err == io.EOF {
-				break
-			}
-
-			return nil, err
+			return nil, err, ErrorInternal
 		}
 
 		var length uint16
 		if err = binary.Read(r, binary.BigEndian, &length); err != nil {
-			return nil, err
+			return nil, err, ErrorInternal
 		}
 
 		if int(length) > r.Len() {
-			return nil, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len())
+			return nil, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len()), ErrorFormat
 		}
 
 		if _, ok := seen[gcTag(tag)]; ok {
-			return nil, fmt.Errorf("tag %s seen multiple times", tag)
+			return nil, fmt.Errorf("tag %s seen multiple times", tag), ErrorFormat
 		}
 		seen[gcTag(tag)] = struct{}{}
 
 		offset, err := r.Seek(int64(length), io.SeekCurrent)
 		if err != nil {
-			return nil, err
+			return nil, err, ErrorInternal
 		}
 
-		data := op.Payload[offset-int64(length) : offset]
+		data := payload[offset-int64(length) : offset]
 
 		switch gcTag(tag) {
 		case tagSignatureAlgorithms:
 			if len(data)%2 != 0 {
-				return nil, fmt.Errorf("invalid data for tagSignatureAlgorithms: %02x", data)
+				return nil, fmt.Errorf("invalid data for tagSignatureAlgorithms: %02x", data), ErrorFormat
 			}
 
 			for j := 0; j < len(data); j += 2 {
@@ -300,7 +296,7 @@ func (certs *certLoader) GetCertificate(op *gokeyless.Operation) (certChain []by
 			}
 		case tagSupportedGroups:
 			if len(data)%2 != 0 {
-				return nil, fmt.Errorf("invalid data for tagSupportedGroups: %02x", data)
+				return nil, fmt.Errorf("invalid data for tagSupportedGroups: %02x", data), ErrorFormat
 			}
 
 			for j := 0; j < len(data); j += 2 {
@@ -315,12 +311,12 @@ func (certs *certLoader) GetCertificate(op *gokeyless.Operation) (certChain []by
 			}
 		case tagECDSACipher:
 			if len(data) != 1 {
-				return nil, fmt.Errorf("invalid data for tagECDSACipher: %02x", data)
+				return nil, fmt.Errorf("invalid data for tagECDSACipher: %02x", data), ErrorFormat
 			}
 
 			hasECDSA = data[0] != 0
 		default:
-			return nil, fmt.Errorf("unknown tag: %s", tag)
+			return nil, fmt.Errorf("unknown tag: %s", tag), ErrorFormat
 		}
 	}
 
@@ -329,17 +325,17 @@ func (certs *certLoader) GetCertificate(op *gokeyless.Operation) (certChain []by
 		!hasSHA384RSA && !hasSHA384ECDSA &&
 		!hasSHA512RSA && !hasSHA512ECDSA &&
 		!hasSECP256R1 && !hasSECP384R1 && !hasSECP521R1 {
-		return nil, gokeyless.ErrCertNotFound
+		return nil, nil, ErrorCertNotFound
 	}
 
 	certs.RLock()
 
-	skis, ok := certs.snis[op.SNI]
+	skis, ok := certs.snis[string(sni)]
 	if !ok {
-		skis = certs.serverIPs[string(op.ServerIP)]
+		skis = certs.serverIPs[string(serverIP)]
 	}
 
-	err = gokeyless.ErrCertNotFound
+	err2 = ErrorCertNotFound
 
 	for _, ski := range skis {
 		cert := certs.skis[ski]
@@ -356,7 +352,7 @@ func (certs *certLoader) GetCertificate(op *gokeyless.Operation) (certChain []by
 			(ok && pub.Curve == elliptic.P256() && !hasSECP256R1) ||
 			(ok && pub.Curve == elliptic.P384() && !hasSECP384R1) ||
 			(ok && pub.Curve == elliptic.P521() && !hasSECP521R1)) {
-			certChain, err = cert.payload, nil
+			out, err2 = cert.payload, ErrorNone
 			break
 		}
 	}

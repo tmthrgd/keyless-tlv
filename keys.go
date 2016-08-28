@@ -10,42 +10,28 @@ import (
 
 	"github.com/cloudflare/cfssl/helpers"
 	"github.com/cloudflare/cfssl/helpers/derhelpers"
-	"github.com/cloudflare/gokeyless"
 )
 
 var keyExt = regexp.MustCompile(`.+\.key`)
 
 type keyLoader struct {
 	sync.RWMutex
-	skis map[gokeyless.SKI]crypto.Signer
+	skis map[SKI]crypto.Signer
 }
 
 func newKeyLoader() *keyLoader {
 	return &keyLoader{
-		skis: make(map[gokeyless.SKI]crypto.Signer),
+		skis: make(map[SKI]crypto.Signer),
 	}
 }
 
-func (k *keyLoader) Add(op *gokeyless.Operation, priv crypto.Signer) error {
-	ski, err := gokeyless.GetSKI(priv.Public())
-	if err != nil {
-		return err
-	}
-
-	k.Lock()
-	k.skis[ski] = priv
-	k.Unlock()
-
-	return nil
-}
-
-func (k *keyLoader) Get(op *gokeyless.Operation) (priv crypto.Signer, ok bool) {
-	if !op.SKI.Valid() {
+func (k *keyLoader) GetKey(ski SKI) (priv crypto.Signer, ok bool) {
+	if !ski.Valid() {
 		return nil, false
 	}
 
 	k.RLock()
-	priv, ok = k.skis[op.SKI]
+	priv, ok = k.skis[ski]
 	k.RUnlock()
 
 	return
@@ -74,7 +60,15 @@ func (k *keyLoader) walker(path string, info os.FileInfo, err error) error {
 		return err
 	}
 
-	k.Add(nil, priv)
+	ski, err := GetSKI(priv.Public())
+	if err != nil {
+		return err
+	}
+
+	k.Lock()
+	k.skis[ski] = priv
+	k.Unlock()
+
 	return nil
 }
 
