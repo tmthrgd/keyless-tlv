@@ -213,7 +213,7 @@ func (c *testRunnerCase) Test(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	n = 2*1024
+	n = 2 * 1024
 	if n < len(resp) {
 		n = len(resp) + 1024
 	}
