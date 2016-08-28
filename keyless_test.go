@@ -68,14 +68,7 @@ type loggerWriter struct {
 func (w *loggerWriter) Write(p []byte) (n int, err error) {
 	n = len(p)
 
-	if len(p) != 0 && p[len(p)-1] == '\n' {
-		if len(p) != 1 && p[len(p)-2] == '\r' {
-			p = p[:len(p)-2]
-		} else {
-			p = p[:len(p)-1]
-		}
-	}
-
+	p = bytes.TrimRight(p, "\r\n")
 	w.Log(string(p))
 	return
 }
