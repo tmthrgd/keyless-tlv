@@ -1,0 +1,25 @@
+01 00       ; version
+00 17       ; length
+00 00 00 04 ; id
+11          ; opcode tag
+00 01       ; length
+f1          ; ping
+12          ; payload tag
+00 10       ; length
+a5 a5 a5 a5 ; value
+a5 a5 a5 a5 ; ...
+a5 a5 a5 a5 ; ...
+a5 a5 a5 a5 ; ...
+---
+01 00       ; version
+00 17       ; length
+00 00 00 04 ; id
+11          ; opcode tag
+00 01       ; length
+f2          ; pong
+12          ; payload tag
+00 10       ; length
+a5 a5 a5 a5 ; value
+a5 a5 a5 a5 ; ...
+a5 a5 a5 a5 ; ...
+a5 a5 a5 a5 ; ...

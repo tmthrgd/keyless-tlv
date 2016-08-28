@@ -1,16 +1,16 @@
 01 00       ; version
 00 04       ; length
-00 00 00 00 ; id
+00 00 00 03 ; id
 11          ; opcode tag
 00 01       ; length
-20          ; get certificate
+35          ; rsa-pss sign sha256
 ---
 01 00       ; version
 00 08       ; length
-00 00 00 00 ; id
+00 00 00 03 ; id
 11          ; opcode tag
 00 01       ; length
 ff          ; error
 12          ; payload tag
 00 01       ; length
-09          ; cert not found
+02          ; key not found
