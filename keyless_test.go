@@ -30,11 +30,11 @@ func TestRunner(t *testing.T) {
 	keys := newKeyLoader()
 	certs := newCertLoader()
 
-	if err := keys.LoadFromDir("./test-data/ssl"); err != nil {
+	if err := keys.LoadFromDir("./test-data/certificate"); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := certs.LoadFromDir("./test-data/ssl"); err != nil {
+	if err := certs.LoadFromDir("./test-data/certificate"); err != nil {
 		t.Fatal(err)
 	}
 
