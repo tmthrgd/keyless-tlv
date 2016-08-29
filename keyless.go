@@ -10,9 +10,7 @@ import (
 	"runtime"
 	"sync"
 	"syscall"
-	"time"
 
-	"github.com/dustin/go-humanize"
 	reuseport "github.com/jbenet/go-reuseport"
 )
 
@@ -107,8 +105,6 @@ func main() {
 		}
 
 		go func(buf []byte, addr net.Addr) {
-			start := time.Now()
-
 			out, err := handleRequest(buf, certs.GetCertificate, keys.GetKey, padding)
 			if err != nil {
 				log.Printf("error: %v\n", err)
@@ -120,10 +116,6 @@ func main() {
 				bufferPool.Put(buf[:0])
 				return
 			}
-
-			elapsed := time.Since(start)
-			log.Printf("elapsed: %s, request: %s, response: %s", elapsed,
-				humanize.IBytes(uint64(len(buf))), humanize.IBytes(uint64(len(out))))
 
 			if _, err = conn.WriteTo(out, addr); err != nil {
 				log.Printf("connection error: %v\n", err)

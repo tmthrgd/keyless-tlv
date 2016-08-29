@@ -13,6 +13,9 @@ import (
 	"io"
 	"log"
 	"net"
+	"time"
+
+	humanize "github.com/dustin/go-humanize"
 )
 
 //go:generate stringer -type=Tag,Op -output=kssl_string.go
@@ -326,8 +329,10 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 	return
 }
 
-func handleRequest(buf []byte, getCert GetCertificate, getKey GetKey, usePadding bool) (out []byte, err error) {
-	r := bytes.NewReader(buf)
+func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding bool) (out []byte, err error) {
+	start := time.Now()
+
+	r := bytes.NewReader(in)
 
 	major, err := r.ReadByte()
 	if err != nil {
@@ -357,7 +362,7 @@ func handleRequest(buf []byte, getCert GetCertificate, getKey GetKey, usePadding
 		err2 = ErrorVersionMismatch
 	} else if int(length) != r.Len() {
 		err2 = ErrorFormat
-	} else if payload, ski, ping, err, err2 = processRequest(buf, r, getCert, getKey); err != nil {
+	} else if payload, ski, ping, err, err2 = processRequest(in, r, getCert, getKey); err != nil {
 		log.Println(err)
 
 		if err2 == ErrorNone {
@@ -365,7 +370,7 @@ func handleRequest(buf []byte, getCert GetCertificate, getKey GetKey, usePadding
 		}
 	}
 
-	b := bytes.NewBuffer(buf[:0])
+	b := bytes.NewBuffer(in[:0])
 
 	b.WriteByte(VersionMajor)
 	b.WriteByte(VersionMinor)
@@ -412,5 +417,8 @@ func handleRequest(buf []byte, getCert GetCertificate, getKey GetKey, usePadding
 
 	out = b.Bytes()
 	binary.BigEndian.PutUint16(out[2:], uint16(b.Len()-HeaderLength))
+
+	log.Printf("elapsed: %s, request: %s, response: %s", time.Since(start),
+		humanize.IBytes(uint64(len(in))), humanize.IBytes(uint64(len(out))))
 	return
 }
