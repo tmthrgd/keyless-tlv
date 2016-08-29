@@ -280,12 +280,12 @@ func unmarshalReqiest(in []byte, r *bytes.Reader) (op Operation, err error) {
 		}
 
 		if int(length) > r.Len() {
-			err = WrappedError{ErrorFormat, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len())}
+			err = WrappedError{ErrorFormat, fmt.Errorf("%s length is %dB beyond end of body", Tag(tag), int(length)-r.Len())}
 			return
 		}
 
 		if _, saw := seen[Tag(tag)]; saw {
-			err = WrappedError{ErrorFormat, fmt.Errorf("tag %s seen multiple times", tag)}
+			err = WrappedError{ErrorFormat, fmt.Errorf("tag %s seen multiple times", Tag(tag))}
 			return
 		}
 		seen[Tag(tag)] = struct{}{}
@@ -339,7 +339,7 @@ func unmarshalReqiest(in []byte, r *bytes.Reader) (op Operation, err error) {
 		case TagPadding:
 			// ignore; should this be checked to ensure it is zero?
 		default:
-			err = WrappedError{ErrorFormat, fmt.Errorf("unknown tag: %s", tag)}
+			err = WrappedError{ErrorFormat, fmt.Errorf("unknown tag: %s", Tag(tag))}
 			return
 		}
 	}
