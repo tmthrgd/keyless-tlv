@@ -223,10 +223,10 @@ func processRequest(in Operation, getCert GetCertificate, getKey GetKey) (out Op
 		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA512}
 	//case gokeyless.OpActivate:
 	case OpPong, OpResponse, OpError:
-		err = ErrorUnexpectedOpcode
+		err = WrappedError{ErrorUnexpectedOpcode, errors.New(in.Opcode.String())}
 		return
 	default:
-		err = ErrorBadOpcode
+		err = WrappedError{ErrorBadOpcode, errors.New(in.Opcode.String())}
 		return
 	}
 
@@ -301,35 +301,35 @@ func unmarshalReqiest(in []byte, r *bytes.Reader) (op Operation, err error) {
 		switch Tag(tag) {
 		case TagDigest:
 			if len(data) != sha256.Size {
-				err = ErrorFormat
+				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 32 bytes, was %d bytes", TagDigest, len(data))}
 				return
 			}
 		case TagSNI:
 			op.SNI = data
 		case TagClientIP:
 			if len(data) != net.IPv4len && len(data) != net.IPv6len {
-				err = ErrorFormat
+				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 4 or 16 bytes, was %d bytes", TagClientIP, len(data))}
 				return
 			}
 
 			op.ClientIP = data
 		case TagSKI:
 			if len(data) != sha1.Size {
-				err = ErrorFormat
+				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 20 bytes, was %d bytes", TagSKI, len(data))}
 				return
 			}
 
 			copy(op.SKI[:], data)
 		case TagServerIP:
 			if len(data) != net.IPv4len && len(data) != net.IPv6len {
-				err = ErrorFormat
+				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 4 or 16 bytes, was %d bytes", TagServerIP, len(data))}
 				return
 			}
 
 			op.ServerIP = data
 		case TagOpcode:
 			if len(data) != 1 {
-				err = ErrorFormat
+				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", TagOpcode, len(data))}
 				return
 			}
 
