@@ -404,13 +404,13 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 		b.WriteByte(byte(OpPong))
 	} else {
 		b.WriteByte(byte(OpResponse))
+	}
 
-		if op.SKI.Valid() {
-			// ski tag
-			b.WriteByte(byte(TagSKI))
-			binary.Write(b, binary.BigEndian, uint16(len(op.SKI)))
-			b.Write(op.SKI[:])
-		}
+	if op.SKI.Valid() {
+		// ski tag
+		b.WriteByte(byte(TagSKI))
+		binary.Write(b, binary.BigEndian, uint16(len(op.SKI)))
+		b.Write(op.SKI[:])
 	}
 
 	// payload tag
