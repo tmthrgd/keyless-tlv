@@ -1,0 +1,23 @@
+01 00       ; version
+00 0e       ; length
+00 00 00 1b ; id
+11          ; opcode tag
+00 01       ; length
+20          ; get certificate
+02          ; sni
+00 01       ; length
+00          ; value
+12          ; payload
+00 03       ; length
+00          ;  invalid tag
+00 00       ;  length
+---
+01 00       ; version
+00 08       ; length
+00 00 00 1b ; id
+11          ; opcode tag
+00 01       ; length
+ff          ; error
+12          ; payload tag
+00 01       ; length
+07          ; format
