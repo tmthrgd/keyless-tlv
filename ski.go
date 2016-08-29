@@ -27,7 +27,7 @@ type rsaPublicKey struct {
 	E int
 }
 
-func GetSKI(pub crypto.PublicKey) (_ SKI, err error) {
+func GetSKI(pub crypto.PublicKey) (ski SKI, err error) {
 	var publicKeyBytes []byte
 
 	switch pub := pub.(type) {
@@ -36,15 +36,17 @@ func GetSKI(pub crypto.PublicKey) (_ SKI, err error) {
 			N: pub.N,
 			E: pub.E,
 		}); err != nil {
-			return nilSKI, err
+			return
 		}
 	case *ecdsa.PublicKey:
 		publicKeyBytes = elliptic.Marshal(pub.Curve, pub.X, pub.Y)
 	default:
-		return nilSKI, errors.New("only RSA and ECDSA public keys supported")
+		err = errors.New("only RSA and ECDSA public keys supported")
+		return
 	}
 
-	return sha1.Sum(publicKeyBytes), nil
+	ski = sha1.Sum(publicKeyBytes)
+	return
 }
 
 func GetSKIForCert(cert *x509.Certificate) (SKI, error) {
