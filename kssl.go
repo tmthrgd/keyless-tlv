@@ -158,12 +158,12 @@ func (op Operation) String() string {
 	return fmt.Sprintf("Opcode: %s, SKI: %02x, Client IP: %s, Server IP: %s, SNI: %s", op.Opcode, ski2, op.ClientIP, op.ServerIP, op.SNI)
 }
 
-func processRequest(in Operation, getCert GetCertificate, getKey GetKey) (out Operation, ping bool, err error) {
+func processRequest(in Operation, getCert GetCertificate, getKey GetKey) (out Operation, err error) {
 	var opts crypto.SignerOpts
 
 	switch in.Opcode {
 	case OpPing:
-		out.Payload, ping = in.Payload, true
+		out.Payload, out.Opcode = in.Payload, OpPong
 		return
 	case OpGetCertificate:
 		if getCert == nil {
@@ -371,7 +371,6 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 	}
 
 	var op Operation
-	var ping bool
 
 	if major != VersionMajor {
 		err = ErrorVersionMismatch
@@ -380,7 +379,7 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 	} else if op, err = unmarshalReqiest(in, r); err == nil {
 		log.Printf("id: %d, %v", id, op)
 
-		op, ping, err = processRequest(op, getCert, getKey)
+		op, err = processRequest(op, getCert, getKey)
 	}
 
 	if err != nil {
@@ -400,8 +399,8 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 
 	if err != nil {
 		b.WriteByte(byte(OpError))
-	} else if ping {
-		b.WriteByte(byte(OpPong))
+	} else if op.Opcode != 0 {
+		b.WriteByte(byte(op.Opcode))
 	} else {
 		b.WriteByte(byte(OpResponse))
 	}
