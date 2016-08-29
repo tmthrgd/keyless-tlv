@@ -156,7 +156,7 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 			return
 		}
 
-		if _, ok := seen[Tag(tag)]; ok {
+		if _, saw := seen[Tag(tag)]; saw {
 			err, err2 = fmt.Errorf("tag %s seen multiple times", tag), ErrorFormat
 			return
 		}

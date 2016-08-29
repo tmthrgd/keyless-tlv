@@ -251,7 +251,7 @@ func (certs *certLoader) GetCertificate(ski SKI, sni []byte, serverIP net.IP, pa
 			return nil, nilSKI, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len()), ErrorFormat
 		}
 
-		if _, ok := seen[gcTag(tag)]; ok {
+		if _, saw := seen[gcTag(tag)]; saw {
 			return nil, nilSKI, fmt.Errorf("tag %s seen multiple times", tag), ErrorFormat
 		}
 		seen[gcTag(tag)] = struct{}{}
