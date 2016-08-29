@@ -270,7 +270,7 @@ func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, e
 		switch gcTag(tag) {
 		case tagSignatureAlgorithms:
 			if len(data)%2 != 0 {
-				err = WrappedError{ErrorFormat, fmt.Errorf("invalid data for tagSignatureAlgorithms: %02x", data)}
+				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be even number of bytes, was %d bytes", tagSignatureAlgorithms, len(data))}
 				return
 			}
 
@@ -297,7 +297,7 @@ func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, e
 			}
 		case tagSupportedGroups:
 			if len(data)%2 != 0 {
-				err = WrappedError{ErrorFormat, fmt.Errorf("invalid data for tagSupportedGroups: %02x", data)}
+				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be even number of bytes, was %d bytes", tagSupportedGroups, len(data))}
 				return
 			}
 
@@ -313,7 +313,7 @@ func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, e
 			}
 		case tagECDSACipher:
 			if len(data) != 1 {
-				err = WrappedError{ErrorFormat, fmt.Errorf("invalid data for tagECDSACipher: %02x", data)}
+				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", tagECDSACipher, len(data))}
 				return
 			}
 
