@@ -376,14 +376,12 @@ func handleRequest(buf []byte, getCert GetCertificate, getKey GetKey, usePadding
 	b.WriteByte(byte(TagOpcode))
 	binary.Write(b, binary.BigEndian, uint16(1))
 
-	if err2 == ErrorNone {
-		if ping {
-			b.WriteByte(byte(OpPong))
-		} else {
-			b.WriteByte(byte(OpResponse))
-		}
-	} else {
+	if err2 != ErrorNone {
 		b.WriteByte(byte(OpError))
+	} else if ping {
+		b.WriteByte(byte(OpPong))
+	} else {
+		b.WriteByte(byte(OpResponse))
 	}
 
 	if ski.Valid() {
@@ -396,12 +394,12 @@ func handleRequest(buf []byte, getCert GetCertificate, getKey GetKey, usePadding
 	// payload tag
 	b.WriteByte(byte(TagPayload))
 
-	if err2 == ErrorNone {
-		binary.Write(b, binary.BigEndian, uint16(len(payload)))
-		b.Write(payload)
-	} else {
+	if err2 != ErrorNone {
 		binary.Write(b, binary.BigEndian, uint16(1))
 		b.WriteByte(byte(err2))
+	} else {
+		binary.Write(b, binary.BigEndian, uint16(len(payload)))
+		b.Write(payload)
 	}
 
 	if usePadding && b.Len() < PadTo {
