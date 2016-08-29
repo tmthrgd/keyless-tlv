@@ -1,0 +1,30 @@
+01 00                                           ; version
+00 9e                                           ; length
+00 00 00 2b                                     ; id
+11                                              ; opcode tag
+00 01                                           ; length
+01                                              ; rsa decrypt
+04                                              ; ski tag
+00 14                                           ; length
+f8 8c 1f d9 90 bb 15 9e 26 a2 bb 3c 59 64 9f f5 ; value - ski of test-rsa-key.key
+69 ea da ad                                     ; ...
+12                                              ; payload tag
+00 80                                           ; length
+a5 eb 3c c5 ba e8 5a 26 32 43 3d ac b7 bd a2 a5 ; value - corrupt encryption of 'test'
+66 a5 ff 7d a6 78 9c 80 bb bc ab 91 c5 64 a5 a6 ; ...
+93 96 a5 1a e9 c9 23 85 99 a9 60 56 96 a5 3a 03 ; ...
+0b e2 45 a5 e2 1b c4 c2 60 17 77 d4 a5 9d 26 88 ; ...
+9a ae c8 06 a5 a1 f3 f5 5c 72 b0 a5 d0 df 81 65 ; ...
+32 8e 95 f6 72 a5 15 5c 17 94 a5 b7 07 6e 5c ad ; ...
+7f da b8 89 41 74 a5 ca 7c a5 e0 5f 46 2a a6 43 ; ...
+65 ef 24 7a cc 55 59 a5 a5 1d 6d a2 aa 90 35 7b ; ...
+---
+01 00                                           ; version
+00 08                                           ; length
+00 00 00 2b                                     ; id
+11                                              ; opcode tag
+00 01                                           ; length
+ff                                              ; error
+12                                              ; payload tag
+00 01                                           ; length
+01                                              ; crypto failed
