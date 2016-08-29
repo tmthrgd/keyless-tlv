@@ -1,0 +1,31 @@
+01 00                                           ; version
+00 3a                                           ; length
+00 00 00 23                                     ; id
+11                                              ; opcode tag
+00 01                                           ; length
+04                                              ; rsa sign sha224
+04                                              ; ski tag
+00 14                                           ; length
+f8 8c 1f d9 90 bb 15 9e 26 a2 bb 3c 59 64 9f f5 ; value - ski of test-rsa-key.key
+69 ea da ad                                     ; ...
+12                                              ; payload tag
+00 1c                                           ; length
+90 a3 ed 9e 32 b2 aa f4 c6 1c 41 0e b9 25 42 61 ; value - sha224 hash of 'test'
+19 e1 a9 dc 53 d4 28 6a de 99 a8 09             ; ...
+---
+01 00                                           ; version
+00 87                                           ; length
+00 00 00 23                                     ; id
+11                                              ; opcode tag
+00 01                                           ; length
+f0                                              ; response
+12                                              ; payload tag
+00 80                                           ; length
+75 43 fc d0 2a 2e 9c 0e 3d 07 0c 2c 98 66 1f 84 ; value
+3b 9d 1e f6 d3 8d dd e0 3d 4b 06 67 26 f0 f8 d3 ; ...
+ef 67 2c 64 36 b6 6e 0d 72 69 4b 2a df 38 de d8 ; ...
+47 cd f1 0d 70 20 6a 6d df ba 80 8c 52 3b f3 cd ; ...
+a2 03 22 d3 cb 90 d5 28 91 39 76 9c f9 c6 54 8e ; ...
+4b 28 a6 ca b0 15 a7 78 1b 6b da c2 61 d5 87 a8 ; ...
+0a d6 b1 a5 84 a3 b0 87 90 69 a0 dd 67 0c 40 1e ; ...
+16 d6 48 2b 36 ad d1 d7 7a 9c 20 c2 13 09 24 9e ; ...

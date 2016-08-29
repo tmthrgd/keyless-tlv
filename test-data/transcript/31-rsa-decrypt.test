@@ -6,7 +6,7 @@
 01                                              ; rsa decrypt
 04                                              ; ski tag
 00 14                                           ; length
-f8 8c 1f d9 90 bb 15 9e 26 a2 bb 3c 59 64 9f f5 ; value: ski of test-rsa-key.key
+f8 8c 1f d9 90 bb 15 9e 26 a2 bb 3c 59 64 9f f5 ; value - ski of test-rsa-key.key
 69 ea da ad                                     ; ...
 12                                              ; payload tag
 00 80                                           ; length
@@ -27,4 +27,4 @@ f8 8c 1f d9 90 bb 15 9e 26 a2 bb 3c 59 64 9f f5 ; value: ski of test-rsa-key.key
 f0                                              ; response
 12                                              ; payload tag
 00 04                                           ; length
-74 65 73 74                                     ; value: 'test'
+74 65 73 74                                     ; value - 'test'
