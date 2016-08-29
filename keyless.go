@@ -108,16 +108,7 @@ func main() {
 			out, err := handleRequest(buf, certs.GetCertificate, keys.GetKey, padding)
 			if err != nil {
 				log.Printf("error: %v\n", err)
-
-				for i := range buf {
-					buf[i] = 0
-				}
-
-				bufferPool.Put(buf[:0])
-				return
-			}
-
-			if _, err = conn.WriteTo(out, addr); err != nil {
+			} else if _, err = conn.WriteTo(out, addr); err != nil {
 				log.Printf("connection error: %v\n", err)
 			}
 
