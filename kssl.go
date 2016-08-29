@@ -9,6 +9,7 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -20,7 +21,7 @@ import (
 
 //go:generate stringer -type=Tag,Op -output=kssl_string.go
 
-type GetCertificate func(ski SKI, sni []byte, serverIP net.IP, payload []byte) ([]byte, SKI, error, Error)
+type GetCertificate func(ski SKI, sni []byte, serverIP net.IP, payload []byte) ([]byte, SKI, error)
 type GetKey func(ski SKI) (crypto.Signer, bool)
 
 const (
@@ -132,7 +133,16 @@ func (e Error) Error() string {
 	}
 }
 
-func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey GetKey) (out []byte, outSKI SKI, ping bool, err error, err2 Error) {
+type WrappedError struct {
+	Code Error
+	Err  error
+}
+
+func (e WrappedError) Error() string {
+	return e.Code.Error() + ": " + e.Err.Error()
+}
+
+func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey GetKey) (out []byte, outSKI SKI, ping bool, err error) {
 	var opcode Op
 	var payload []byte
 	var ski SKI
@@ -144,30 +154,30 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 	for r.Len() != 0 {
 		var tag byte
 		if tag, err = r.ReadByte(); err != nil {
-			err2 = ErrorFormat
+			err = WrappedError{ErrorFormat, err}
 			return
 		}
 
 		var length uint16
 		if err = binary.Read(r, binary.BigEndian, &length); err != nil {
-			err2 = ErrorFormat
+			err = WrappedError{ErrorFormat, err}
 			return
 		}
 
 		if int(length) > r.Len() {
-			err, err2 = fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len()), ErrorFormat
+			err = WrappedError{ErrorFormat, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len())}
 			return
 		}
 
 		if _, saw := seen[Tag(tag)]; saw {
-			err, err2 = fmt.Errorf("tag %s seen multiple times", tag), ErrorFormat
+			err = WrappedError{ErrorFormat, fmt.Errorf("tag %s seen multiple times", tag)}
 			return
 		}
 		seen[Tag(tag)] = struct{}{}
 
 		var offset int64
 		if offset, err = r.Seek(int64(length), io.SeekCurrent); err != nil {
-			err2 = ErrorInternal
+			err = WrappedError{ErrorInternal, err}
 			return
 		}
 
@@ -176,35 +186,35 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 		switch Tag(tag) {
 		case TagDigest:
 			if len(data) != sha256.Size {
-				err2 = ErrorFormat
+				err = ErrorFormat
 				return
 			}
 		case TagSNI:
 			sni = data
 		case TagClientIP:
 			if len(data) != net.IPv4len && len(data) != net.IPv6len {
-				err2 = ErrorFormat
+				err = ErrorFormat
 				return
 			}
 
 			clientIP = data
 		case TagSKI:
 			if len(data) != sha1.Size {
-				err2 = ErrorFormat
+				err = ErrorFormat
 				return
 			}
 
 			copy(ski[:], data)
 		case TagServerIP:
 			if len(data) != net.IPv4len && len(data) != net.IPv6len {
-				err2 = ErrorFormat
+				err = ErrorFormat
 				return
 			}
 
 			serverIP = data
 		case TagOpcode:
 			if len(data) != 1 {
-				err2 = ErrorFormat
+				err = ErrorFormat
 				return
 			}
 
@@ -214,7 +224,7 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 		case TagPadding:
 			// ignore; should this be checked to ensure it is zero?
 		default:
-			err, err2 = fmt.Errorf("unknown tag: %s", tag), ErrorFormat
+			err = WrappedError{ErrorFormat, fmt.Errorf("unknown tag: %s", tag)}
 			return
 		}
 	}
@@ -234,27 +244,27 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 		return
 	case OpGetCertificate:
 		if getCert == nil {
-			err2 = ErrorCertNotFound
+			err = ErrorCertNotFound
 			return
 		}
 
-		out, outSKI, err, err2 = getCert(ski, sni, serverIP, payload)
+		out, outSKI, err = getCert(ski, sni, serverIP, payload)
 		return
 	case OpRSADecrypt, OpRSADecryptRaw:
 		if getKey == nil {
-			err2 = ErrorKeyNotFound
+			err = ErrorKeyNotFound
 			return
 		}
 
 		key, ok := getKey(ski)
 		if !ok {
-			err2 = ErrorKeyNotFound
+			err = ErrorKeyNotFound
 			return
 		}
 
 		rsaKey, ok := key.(*rsa.PrivateKey)
 		if !ok {
-			err, err2 = fmt.Errorf("Key is not RSA"), ErrorCryptoFailed
+			err = WrappedError{ErrorCryptoFailed, errors.New("Key is not RSA")}
 			return
 		}
 
@@ -265,7 +275,7 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 		}
 
 		if err != nil {
-			err2 = ErrorCryptoFailed
+			err = WrappedError{ErrorCryptoFailed, err}
 		}
 
 		return
@@ -289,21 +299,21 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA512}
 	//case gokeyless.OpActivate:
 	case OpPong, OpResponse, OpError:
-		err2 = ErrorUnexpectedOpcode
+		err = ErrorUnexpectedOpcode
 		return
 	default:
-		err2 = ErrorBadOpcode
+		err = ErrorBadOpcode
 		return
 	}
 
 	if getKey == nil {
-		err2 = ErrorKeyNotFound
+		err = ErrorKeyNotFound
 		return
 	}
 
 	key, ok := getKey(ski)
 	if !ok {
-		err2 = ErrorKeyNotFound
+		err = ErrorKeyNotFound
 		return
 	}
 
@@ -312,18 +322,18 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 	case OpRSASignMD5SHA1, OpRSASignSHA1, OpRSASignSHA224, OpRSASignSHA256, OpRSASignSHA384, OpRSASignSHA512,
 		OpRSAPSSSignSHA256, OpRSAPSSSignSHA384, OpRSAPSSSignSHA512:
 		if _, ok := key.Public().(*rsa.PublicKey); !ok {
-			err, err2 = fmt.Errorf("request is RSA, but key isn't"), ErrorCryptoFailed
+			err = WrappedError{ErrorCryptoFailed, errors.New("request is RSA, but key isn't")}
 			return
 		}
 	case OpECDSASignMD5SHA1, OpECDSASignSHA1, OpECDSASignSHA224, OpECDSASignSHA256, OpECDSASignSHA384, OpECDSASignSHA512:
 		if _, ok := key.Public().(*ecdsa.PublicKey); !ok {
-			err, err2 = fmt.Errorf("request is ECDSA, but key isn't"), ErrorCryptoFailed
+			err = WrappedError{ErrorCryptoFailed, errors.New("request is ECDSA, but key isn't")}
 			return
 		}
 	}
 
 	if out, err = key.Sign(rand.Reader, payload, opts); err != nil {
-		err2 = ErrorCryptoFailed
+		err = WrappedError{ErrorCryptoFailed, err}
 	}
 
 	return
@@ -356,18 +366,17 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 	var payload []byte
 	var ski SKI
 	var ping bool
-	err2 := ErrorNone
 
 	if major != VersionMajor {
-		err2 = ErrorVersionMismatch
+		err = ErrorVersionMismatch
 	} else if int(length) != r.Len() {
-		err2 = ErrorFormat
-	} else if payload, ski, ping, err, err2 = processRequest(in, r, getCert, getKey); err != nil {
-		log.Println(err)
+		err = WrappedError{ErrorFormat, errors.New("invalid header length")}
+	} else {
+		payload, ski, ping, err = processRequest(in, r, getCert, getKey)
+	}
 
-		if err2 == ErrorNone {
-			err2 = ErrorInternal
-		}
+	if err != nil {
+		log.Println(err)
 	}
 
 	b := bytes.NewBuffer(in[:0])
@@ -381,7 +390,7 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 	b.WriteByte(byte(TagOpcode))
 	binary.Write(b, binary.BigEndian, uint16(1))
 
-	if err2 != ErrorNone {
+	if err != nil && err != ErrorNone {
 		b.WriteByte(byte(OpError))
 	} else if ping {
 		b.WriteByte(byte(OpPong))
@@ -399,9 +408,19 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 	// payload tag
 	b.WriteByte(byte(TagPayload))
 
-	if err2 != ErrorNone {
+	if err != nil && err != ErrorNone {
 		binary.Write(b, binary.BigEndian, uint16(1))
-		b.WriteByte(byte(err2))
+
+		switch err := err.(type) {
+		case Error:
+			b.WriteByte(byte(err))
+		case WrappedError:
+			b.WriteByte(byte(err.Code))
+		default:
+			b.WriteByte(byte(ErrorInternal))
+		}
+
+		err = nil
 	} else {
 		binary.Write(b, binary.BigEndian, uint16(len(payload)))
 		b.Write(payload)
