@@ -1,5 +1,5 @@
 01 00       ; version
-00 0f       ; length
+00 07       ; length
 00 00 00 05 ; id
 11          ; opcode tag
 00 01       ; length
