@@ -224,8 +224,6 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 	log.Printf("Opcode: %s, SKI: %02x, Client IP: %s, Server IP: %s, SNI: %s", opcode, ski2, clientIP, serverIP, sni)
 
 	var opts crypto.SignerOpts
-	var key crypto.Signer
-	var ok bool
 
 	switch opcode {
 	case OpPing:
@@ -245,7 +243,8 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 			return
 		}
 
-		if key, ok = getKey(ski); !ok {
+		key, ok := getKey(ski)
+		if !ok {
 			err2 = ErrorKeyNotFound
 			return
 		}
@@ -299,7 +298,8 @@ func processRequest(in []byte, r *bytes.Reader, getCert GetCertificate, getKey G
 		return
 	}
 
-	if key, ok = getKey(ski); !ok {
+	key, ok := getKey(ski)
+	if !ok {
 		err2 = ErrorKeyNotFound
 		return
 	}
