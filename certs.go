@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -205,12 +204,12 @@ const (
 	sslSignatureECDSA = 3
 )
 
-func (certs *certLoader) GetCertificate(ski SKI, sni []byte, serverIP net.IP, payload []byte) (out []byte, outSKI SKI, err error) {
-	if ski.Valid() {
+func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, err error) {
+	if op.SKI.Valid() {
 		certs.RLock()
 
-		if cert, ok := certs.skis[ski]; ok {
-			out, outSKI = cert.payload, ski
+		if cert, ok := certs.skis[op.SKI]; ok {
+			out, outSKI = cert.payload, op.SKI
 		} else {
 			err = ErrorCertNotFound
 		}
@@ -219,7 +218,7 @@ func (certs *certLoader) GetCertificate(ski SKI, sni []byte, serverIP net.IP, pa
 		return
 	}
 
-	if len(payload) == 0 || (len(sni) == 0 && serverIP == nil) {
+	if len(op.Payload) == 0 || (len(op.SNI) == 0 && op.ServerIP == nil) {
 		err = ErrorCertNotFound
 		return
 	}
@@ -230,7 +229,7 @@ func (certs *certLoader) GetCertificate(ski SKI, sni []byte, serverIP net.IP, pa
 		hasSHA512RSA, hasSHA512ECDSA,
 		hasSECP256R1, hasSECP384R1, hasSECP521R1 bool
 
-	r := bytes.NewReader(payload)
+	r := bytes.NewReader(op.Payload)
 
 	seen := make(map[gcTag]struct{})
 
@@ -264,7 +263,7 @@ func (certs *certLoader) GetCertificate(ski SKI, sni []byte, serverIP net.IP, pa
 			return
 		}
 
-		data := payload[offset-int64(length) : offset]
+		data := op.Payload[offset-int64(length) : offset]
 
 		switch gcTag(tag) {
 		case tagSignatureAlgorithms:
@@ -335,9 +334,9 @@ func (certs *certLoader) GetCertificate(ski SKI, sni []byte, serverIP net.IP, pa
 
 	certs.RLock()
 
-	skis, ok := certs.snis[string(sni)]
+	skis, ok := certs.snis[string(op.SNI)]
 	if !ok {
-		skis = certs.serverIPs[string(serverIP)]
+		skis = certs.serverIPs[string(op.ServerIP)]
 	}
 
 	for _, ski := range skis {
