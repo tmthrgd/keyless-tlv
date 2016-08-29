@@ -7,9 +7,14 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/rsa"
+	"encoding/asn1"
 	"errors"
 	"fmt"
 	"log"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,6 +31,14 @@ func (w *loggerWriter) Write(p []byte) (n int, err error) {
 	p = bytes.TrimRight(p, "\r\n")
 	w.Log(string(p))
 	return
+}
+
+func TestRunner(t *testing.T) {
+	runner(t)
+}
+
+func BenchmarkRunner(b *testing.B) {
+	runner(b)
 }
 
 func runner(tb testing.TB) {
@@ -84,14 +97,6 @@ func runner(tb testing.TB) {
 	}); err != nil {
 		tb.Error(err)
 	}
-}
-
-func TestRunner(t *testing.T) {
-	runner(t)
-}
-
-func BenchmarkRunner(b *testing.B) {
-	runner(b)
 }
 
 func fromHexChar(c byte) (b byte, skip bool, ok bool) {
@@ -192,6 +197,243 @@ func runTestCase(t *testing.T, path string, getCert GetCertificate, getKey GetKe
 
 func runBenchmarkCase(b *testing.B, path string, getCert GetCertificate, getKey GetKey) {
 	req, _, err := parseTestCase(path)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		if _, err := handleRequest(req, getCert, getKey, false); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+/* This is all rather hideous below, but it works! */
+func TestSigning(t *testing.T) {
+	signing(t)
+}
+
+func BenchmarkSigning(b *testing.B) {
+	signing(b)
+}
+
+func signing(tb testing.TB) {
+	logger := &loggerWriter{tb}
+	log.SetOutput(logger)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
+
+	keys := newKeyLoader()
+	certs := newCertLoader()
+
+	if err := keys.LoadFromDir("./test-data/certificate"); err != nil {
+		tb.Fatal(err)
+	}
+
+	if err := certs.LoadFromDir("./test-data/certificate"); err != nil {
+		tb.Fatal(err)
+	}
+
+	for j, idx := 0, 0; j <= 1; j++ {
+		for _, h := range []crypto.Hash{crypto.MD5SHA1, crypto.SHA1, crypto.SHA224, crypto.SHA256, crypto.SHA384, crypto.SHA512} {
+			/* The RSA private key is only 1024-bits, it is thus too small for a SHA512 RSA-PSS signature. Skip it. */
+			if j == 1 && (h != crypto.SHA256 && h != crypto.SHA384) {
+				continue
+			}
+
+			name := fmt.Sprintf("%02d", idx)
+
+			if j == 1 {
+				name += "-pss"
+			} else {
+				name += "-ecdsa"
+			}
+
+			switch h {
+			case crypto.MD5SHA1:
+				name += "-md5-sha1"
+			case crypto.SHA1:
+				name += "-sha1"
+			case crypto.SHA224:
+				name += "-sha224"
+			case crypto.SHA256:
+				name += "-sha256"
+			case crypto.SHA384:
+				name += "-sha384"
+			case crypto.SHA512:
+				name += "-sha512"
+			}
+
+			if b, ok := tb.(*testing.B); ok {
+				b.Run(name, func(bb *testing.B) {
+					logger.TB = bb
+					defer func() {
+						logger.TB = tb
+					}()
+
+					runBenchmarkSigningCase(bb, byte(idx), h, j == 1, certs.GetCertificate, keys.GetKey)
+				})
+			} else {
+				var ski SKI
+
+				if j == 1 {
+					ski = SKI{0xf8, 0x8c, 0x1f, 0xd9, 0x90, 0xbb, 0x15, 0x9e, 0x26, 0xa2, 0xbb, 0x3c, 0x59, 0x64, 0x9f, 0xf5, 0x69, 0xea, 0xda, 0xad}
+				} else {
+					ski = SKI{0x00, 0x82, 0x62, 0x7c, 0x92, 0xe8, 0xc4, 0x6c, 0x8c, 0x05, 0x71, 0x3f, 0x0a, 0x70, 0xeb, 0x2e, 0x09, 0xf9, 0x63, 0xc1}
+				}
+
+				priv, ok := keys.GetKey(ski)
+				if !ok {
+					tb.Fatal("can't find key")
+				}
+
+				tb.(*testing.T).Run(name, func(tt *testing.T) {
+					logger.TB = tt
+					defer func() {
+						logger.TB = tb
+					}()
+
+					runTestSigningCase(tt, byte(idx), h, j == 1, priv.Public(), certs.GetCertificate, keys.GetKey)
+				})
+			}
+
+			idx++
+		}
+	}
+}
+
+func generateSigningRequest(idx byte, h crypto.Hash, ecdsaOrPSS bool) ([]byte, []byte, error) {
+	var opcode Op
+	switch h {
+	case crypto.MD5SHA1:
+		opcode = OpRSASignMD5SHA1
+	case crypto.SHA1:
+		opcode = OpRSASignSHA1
+	case crypto.SHA224:
+		opcode = OpRSASignSHA224
+	case crypto.SHA256:
+		opcode = OpRSASignSHA256
+	case crypto.SHA384:
+		opcode = OpRSASignSHA384
+	case crypto.SHA512:
+		opcode = OpRSASignSHA512
+	default:
+		return nil, nil, errors.New("invalid hash")
+	}
+
+	if ecdsaOrPSS {
+		opcode |= Op(0x30) // RSA-PSS
+	} else {
+		opcode |= Op(0x10) // ECDSA
+	}
+
+	var ski SKI
+
+	if ecdsaOrPSS {
+		ski = SKI{0xf8, 0x8c, 0x1f, 0xd9, 0x90, 0xbb, 0x15, 0x9e, 0x26, 0xa2, 0xbb, 0x3c, 0x59, 0x64, 0x9f, 0xf5, 0x69, 0xea, 0xda, 0xad}
+	} else {
+		ski = SKI{0x00, 0x82, 0x62, 0x7c, 0x92, 0xe8, 0xc4, 0x6c, 0x8c, 0x05, 0x71, 0x3f, 0x0a, 0x70, 0xeb, 0x2e, 0x09, 0xf9, 0x63, 0xc1}
+	}
+
+	var hash []byte
+
+	if h == crypto.MD5SHA1 {
+		h1, h2 := crypto.MD5.New(), crypto.SHA1.New()
+		h1.Write([]byte("test"))
+		h2.Write([]byte("test"))
+		hash = bytes.Join([][]byte{h1.Sum(nil), h2.Sum(nil)}, nil)
+	} else {
+		hh := h.New()
+		hh.Write([]byte("test"))
+		hash = hh.Sum(nil)
+	}
+
+	return hash, bytes.Join([][]byte{
+		[]byte{
+			0x01, 0x00, // version
+			0x00, 0x1e + byte(len(hash)), // length
+			0x00, 0x00, 0x00, idx, // id
+			0x11,       // opcode tag
+			0x00, 0x01, // length
+			byte(opcode), // opcode
+			0x04,         // ski tag
+			0x00, 0x14,   // length
+		},
+		ski[:],
+		[]byte{
+			0x12,                  // payload tag
+			0x00, byte(len(hash)), // length
+		},
+		hash,
+	}, nil), nil
+}
+
+func runTestSigningCase(t *testing.T, idx byte, h crypto.Hash, ecdsaOrPSS bool, pub crypto.PublicKey, getCert GetCertificate, getKey GetKey) {
+	hash, req, err := generateSigningRequest(idx, h, ecdsaOrPSS)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected1 := []byte{
+		0x01, 0x00, // version
+		0x00, /*xx*/ // length
+	}
+	expected2 := []byte{
+		0x00, 0x00, 0x00, byte(idx), // id
+		0x11,       // opcode tag
+		0x00, 0x01, // length
+		0xf0, // response
+		0x12, // payload tag
+		0x00, /*xx*/ // length
+	}
+
+	t.Logf("-> %x", req)
+	t.Logf("<- %02xxx%02xxx...", expected1, expected2)
+
+	got, err := handleRequest(req, getCert, getKey, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.HasPrefix(got, expected1) ||
+		!bytes.HasPrefix(got[len(expected1)+1:], expected2) {
+		t.Error("invalid response")
+		t.Logf("expected: %02xxx%02xxx...", expected1, expected2)
+		t.Logf("got:      %02x", got)
+		t.Fail()
+	}
+
+	fr := len(expected1) + 1 + len(expected2)
+	if int(got[fr]) != len(got)-fr-1 {
+		t.Fatalf("invalid length, expected %d, got %d", len(got)-fr-1, got[fr])
+	}
+
+	var valid bool
+
+	if ecdsaOrPSS {
+		valid = rsa.VerifyPSS(pub.(*rsa.PublicKey), h, hash, got[fr+1:], &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, h}) == nil
+	} else {
+		var sig struct {
+			R, S *big.Int
+		}
+
+		if _, err := asn1.Unmarshal(got[fr+1:], &sig); err != nil {
+			t.Fatal(err)
+		}
+
+		valid = ecdsa.Verify(pub.(*ecdsa.PublicKey), hash, sig.R, sig.S)
+	}
+
+	if !valid {
+		t.Fatal("invalid signature")
+	}
+}
+
+func runBenchmarkSigningCase(b *testing.B, idx byte, h crypto.Hash, ecdsaOrPSS bool, getCert GetCertificate, getKey GetKey) {
+	_, req, err := generateSigningRequest(idx, h, ecdsaOrPSS)
 	if err != nil {
 		b.Fatal(err)
 	}
