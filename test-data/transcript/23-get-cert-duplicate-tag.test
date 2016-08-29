@@ -4,10 +4,10 @@
 11          ; opcode tag
 00 01       ; length
 20          ; get certificate
-02          ; sni
+02          ; sni tag
 00 01       ; length
 00          ; value
-12          ; payload
+12          ; payload tag
 00 06       ; length
 01          ;  signature algorithms tag
 00 00       ;  value
