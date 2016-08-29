@@ -1,0 +1,23 @@
+01 00       ; version
+00 1b       ; length
+00 00 00 1d ; id
+11          ; opcode tag
+00 01       ; length
+20          ; get certificate
+04          ; ski tag
+00 14       ; length
+ff ff ff ff ; value
+ff ff ff ff ; ...
+ff ff ff ff ; ...
+ff ff ff ff ; ...
+ff ff ff ff ; ...
+---
+01 00       ; version
+00 08       ; length
+00 00 00 1d ; id
+11          ; opcode tag
+00 01       ; length
+ff          ; error
+12          ; payload tag
+00 01       ; length
+09          ; cert not found

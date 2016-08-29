@@ -1,0 +1,28 @@
+01 00       ; version
+00 15       ; length
+00 00 00 1c ; id
+11          ; opcode tag
+00 01       ; length
+20          ; get certificate
+02          ; sni
+00 01       ; length
+00          ; value
+12          ; payload
+00 0a       ; length
+01          ;  signature algorithms tag
+00 00       ;  length
+02          ;  supported groups tag
+00 00       ;  length
+03          ;  ecdsa cipher tag
+00 01       ;  length
+00
+---
+01 00       ; version
+00 08       ; length
+00 00 00 1c ; id
+11          ; opcode tag
+00 01       ; length
+ff          ; error
+12          ; payload tag
+00 01       ; length
+09          ; cert not found
