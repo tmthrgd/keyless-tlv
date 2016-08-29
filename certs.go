@@ -20,6 +20,8 @@ import (
 	"github.com/cloudflare/cfssl/helpers"
 )
 
+//go:generate stringer -type=gcTag -output=certs_string.go
+
 type cert struct {
 	leaf    *x509.Certificate
 	payload []byte
@@ -247,12 +249,12 @@ func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, e
 		}
 
 		if int(length) > r.Len() {
-			err = WrappedError{ErrorFormat, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len())}
+			err = WrappedError{ErrorFormat, fmt.Errorf("%s length is %dB beyond end of body", gcTag(tag), int(length)-r.Len())}
 			return
 		}
 
 		if _, saw := seen[gcTag(tag)]; saw {
-			err = WrappedError{ErrorFormat, fmt.Errorf("tag %s seen multiple times", tag)}
+			err = WrappedError{ErrorFormat, fmt.Errorf("tag %s seen multiple times", gcTag(tag))}
 			return
 		}
 		seen[gcTag(tag)] = struct{}{}
@@ -317,7 +319,7 @@ func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, e
 
 			hasECDSA = data[0] != 0
 		default:
-			err = WrappedError{ErrorFormat, fmt.Errorf("unknown tag: %s", tag)}
+			err = WrappedError{ErrorFormat, fmt.Errorf("unknown tag: %s", gcTag(tag))}
 			return
 		}
 	}
