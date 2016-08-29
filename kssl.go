@@ -94,21 +94,20 @@ const (
 type Error byte
 
 const (
-	ErrorNone             Error = iota // No error
-	ErrorCryptoFailed                  // Cryptographic error
-	ErrorKeyNotFound                   // Private key not found
-	ErrorDiskRead                      // [Deprecated]: Disk read failure
-	ErrorVersionMismatch               // Client-Server version mismatch
-	ErrorBadOpcode                     // Invalid/unsupported opcode
-	ErrorUnexpectedOpcode              // Opcode sent at wrong time/direction
-	ErrorFormat                        // Malformed message
-	ErrorInternal                      // Other internal error
-	ErrorCertNotFound                  // Certificate not found
+	ErrorCryptoFailed     Error = iota + 1 // Cryptographic error
+	ErrorKeyNotFound                       // Private key not found
+	ErrorDiskRead                          // [Deprecated]: Disk read failure
+	ErrorVersionMismatch                   // Client-Server version mismatch
+	ErrorBadOpcode                         // Invalid/unsupported opcode
+	ErrorUnexpectedOpcode                  // Opcode sent at wrong time/direction
+	ErrorFormat                            // Malformed message
+	ErrorInternal                          // Other internal error
+	ErrorCertNotFound                      // Certificate not found
 )
 
 func (e Error) Error() string {
 	switch e {
-	case ErrorNone:
+	case 0:
 		return "no error"
 	case ErrorCryptoFailed:
 		return "cryptography error"
@@ -399,7 +398,7 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 	b.WriteByte(byte(TagOpcode))
 	binary.Write(b, binary.BigEndian, uint16(1))
 
-	if err != nil && err != ErrorNone {
+	if err != nil {
 		b.WriteByte(byte(OpError))
 	} else if ping {
 		b.WriteByte(byte(OpPong))
@@ -417,7 +416,7 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 	// payload tag
 	b.WriteByte(byte(TagPayload))
 
-	if err != nil && err != ErrorNone {
+	if err != nil {
 		binary.Write(b, binary.BigEndian, uint16(1))
 
 		switch err := err.(type) {
