@@ -145,7 +145,7 @@ func (certs *certLoader) walker(path string, info os.FileInfo, err error) error 
 		return errors.New("invalid file")
 	}
 
-	ski, err := GetSKIForCert(x509s[0])
+	ski, err := GetSKI(x509s[0].PublicKey)
 	if err != nil {
 		return err
 	}

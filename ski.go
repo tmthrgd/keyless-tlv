@@ -11,7 +11,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rsa"
 	"crypto/sha1"
-	"crypto/x509"
 	"encoding/asn1"
 	"errors"
 	"math/big"
@@ -47,10 +46,6 @@ func GetSKI(pub crypto.PublicKey) (ski SKI, err error) {
 
 	ski = sha1.Sum(publicKeyBytes)
 	return
-}
-
-func GetSKIForCert(cert *x509.Certificate) (SKI, error) {
-	return GetSKI(cert.PublicKey)
 }
 
 func (ski SKI) Valid() bool {
