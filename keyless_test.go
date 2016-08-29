@@ -7,59 +7,12 @@ package main
 import (
 	"bufio"
 	"bytes"
-	crand "crypto/rand"
-	"encoding/binary"
-	"fmt"
-	"io/ioutil"
-	"math/rand"
-	"net"
+	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
-
-var nameRand *rand.Rand
-
-func init() {
-	var seed [8]byte
-
-	if _, err := crand.Read(seed[:]); err != nil {
-		panic(err)
-	}
-
-	seedInt := int64(binary.LittleEndian.Uint64(seed[:]))
-	nameRand = rand.New(rand.NewSource(seedInt))
-}
-
-var agentExe string
-
-func TestMain(m *testing.M) {
-	dir, err := ioutil.TempDir("", "go-test-agent")
-	if err != nil {
-		panic(err)
-	}
-
-	agentExe = dir + "/ip-blocker-agent"
-
-	cmd := exec.Command("go", "build", "-o", agentExe, ".")
-	cmd.Stderr = os.Stderr
-	cmd.Run()
-
-	code := m.Run()
-	os.RemoveAll(dir)
-	os.Exit(code)
-}
-
-func testAddress() string {
-	return fmt.Sprintf("127.%d.%d.%d:%d", nameRand.Intn(256), nameRand.Intn(256), nameRand.Intn(255-1)+1, nameRand.Intn(65536-49152)+49152)
-}
-
-func testCommand(addr string) *exec.Cmd {
-	return exec.Command(agentExe, "-addr", addr, "-dir", "./test-data/ssl", "-pid", "", "-padding=false")
-}
 
 type loggerWriter struct {
 	*testing.T
@@ -74,17 +27,22 @@ func (w *loggerWriter) Write(p []byte) (n int, err error) {
 }
 
 func TestRunner(t *testing.T) {
-	addr := testAddress()
-	cmd := testCommand(addr)
+	keys := newKeyLoader()
+	certs := newCertLoader()
 
-	logger := &loggerWriter{t}
-	cmd.Stdout, cmd.Stderr = logger, logger
-
-	if err := cmd.Start(); err != nil {
+	if err := keys.LoadFromDir("./test-data/ssl"); err != nil {
 		t.Fatal(err)
 	}
 
-	time.Sleep(100 * time.Millisecond)
+	if err := certs.LoadFromDir("./test-data/ssl"); err != nil {
+		t.Fatal(err)
+	}
+
+	logger := &loggerWriter{t}
+	log.SetOutput(logger)
+	defer func() {
+		log.SetOutput(os.Stderr)
+	}()
 
 	if err := filepath.Walk("./test-data/transcript", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -106,14 +64,10 @@ func TestRunner(t *testing.T) {
 				logger.T = t
 			}()
 
-			runTestCase(tt, path, addr)
+			runTestCase(tt, path, certs.GetCertificate, keys.GetKey)
 		})
 		return nil
 	}); err != nil {
-		t.Error(err)
-	}
-
-	if err := cmd.Process.Kill(); err != nil {
 		t.Error(err)
 	}
 }
@@ -190,34 +144,16 @@ func parseTestCase(t *testing.T, path string) (request []byte, response []byte) 
 	return req.Bytes(), resp.Bytes()
 }
 
-func runTestCase(t *testing.T, path, addr string) {
+func runTestCase(t *testing.T, path string, getCert GetCertificate, getKey GetKey) {
 	req, resp := parseTestCase(t, path)
 
 	t.Logf("-> %x", req)
 	t.Logf("<- %x", resp)
 
-	conn, err := net.Dial("udp", addr)
+	got, err := handleRequest(req, getCert, getKey, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	n, err := conn.Write(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	n = 2 * 1024
-	if n < len(resp) {
-		n = len(resp) + 1024
-	}
-
-	got := make([]byte, n)
-
-	if n, err = conn.Read(got); err != nil {
-		t.Fatal(err)
-	}
-
-	got = got[:n]
 
 	if !bytes.Equal(got, resp) {
 		t.Error("invalid response")
