@@ -379,13 +379,13 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 	} else if int(length) != r.Len() {
 		err = WrappedError{ErrorFormat, errors.New("invalid header length")}
 	} else if op, err = unmarshalReqiest(in, r); err == nil {
-		log.Println(op)
+		log.Printf("id: %d, %v", id, op)
 
 		op, ping, err = processRequest(op, getCert, getKey)
 	}
 
 	if err != nil {
-		log.Println(err)
+		log.Printf("id: %d, %v", id, err)
 	}
 
 	b := bytes.NewBuffer(in[:0])
@@ -446,7 +446,7 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 	out = b.Bytes()
 	binary.BigEndian.PutUint16(out[2:], uint16(b.Len()-HeaderLength))
 
-	log.Printf("elapsed: %s, request: %s, response: %s", time.Since(start),
+	log.Printf("id: %d, elapsed: %s, request: %s, response: %s", id, time.Since(start),
 		humanize.IBytes(uint64(len(in))), humanize.IBytes(uint64(len(out))))
 	return
 }
