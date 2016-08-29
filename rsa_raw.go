@@ -48,6 +48,9 @@ func rsaDecrypt(random io.Reader, priv *rsa.PrivateKey, c *big.Int) (m *big.Int,
 		err = rsa.ErrDecryption
 		return
 	}
+	if priv.N.Sign() == 0 {
+		return nil, rsa.ErrDecryption
+	}
 
 	var ir *big.Int
 	if random != nil {
@@ -73,7 +76,7 @@ func rsaDecrypt(random io.Reader, priv *rsa.PrivateKey, c *big.Int) (m *big.Int,
 			}
 		}
 		bigE := big.NewInt(int64(priv.E))
-		rpowe := new(big.Int).Exp(r, bigE, priv.N)
+		rpowe := new(big.Int).Exp(r, bigE, priv.N) // N != 0
 		cCopy := new(big.Int).Set(c)
 		cCopy.Mul(cCopy, rpowe)
 		cCopy.Mod(cCopy, priv.N)
@@ -127,7 +130,6 @@ func rsaRawDecrypt(random io.Reader, priv *rsa.PrivateKey, ciphertext []byte) (p
 
 	c := new(big.Int).SetBytes(ciphertext)
 	m, err := rsaDecrypt(random, priv, c)
-
 	if err != nil {
 		return
 	}
