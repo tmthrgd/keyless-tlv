@@ -348,27 +348,20 @@ func handleRequest(buf []byte, getCert GetCertificate, getKey GetKey, usePadding
 		return nil, err
 	}
 
+	var payload []byte
+	var ski SKI
+	var ping bool
 	err2 := ErrorNone
 
 	if major != VersionMajor {
 		err2 = ErrorVersionMismatch
-	}
-
-	if err2 == ErrorNone && int(length) != r.Len() {
+	} else if int(length) != r.Len() {
 		err2 = ErrorFormat
-	}
+	} else if payload, ski, ping, err, err2 = processRequest(buf, r, getCert, getKey); err != nil {
+		log.Println(err)
 
-	var payload []byte
-	var ski SKI
-	var ping bool
-
-	if err2 == ErrorNone {
-		if payload, ski, ping, err, err2 = processRequest(buf, r, getCert, getKey); err != nil {
-			log.Println(err)
-
-			if err2 == ErrorNone {
-				err2 = ErrorInternal
-			}
+		if err2 == ErrorNone {
+			err2 = ErrorInternal
 		}
 	}
 
