@@ -7,6 +7,8 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -15,7 +17,7 @@ import (
 )
 
 type loggerWriter struct {
-	*testing.T
+	testing.TB
 }
 
 func (w *loggerWriter) Write(p []byte) (n int, err error) {
@@ -26,23 +28,23 @@ func (w *loggerWriter) Write(p []byte) (n int, err error) {
 	return
 }
 
-func TestRunner(t *testing.T) {
-	keys := newKeyLoader()
-	certs := newCertLoader()
-
-	if err := keys.LoadFromDir("./test-data/certificate"); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := certs.LoadFromDir("./test-data/certificate"); err != nil {
-		t.Fatal(err)
-	}
-
-	logger := &loggerWriter{t}
+func runner(tb testing.TB) {
+	logger := &loggerWriter{tb}
 	log.SetOutput(logger)
 	defer func() {
 		log.SetOutput(os.Stderr)
 	}()
+
+	keys := newKeyLoader()
+	certs := newCertLoader()
+
+	if err := keys.LoadFromDir("./test-data/certificate"); err != nil {
+		tb.Fatal(err)
+	}
+
+	if err := certs.LoadFromDir("./test-data/certificate"); err != nil {
+		tb.Fatal(err)
+	}
 
 	if err := filepath.Walk("./test-data/transcript", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -58,18 +60,38 @@ func TestRunner(t *testing.T) {
 			rel = path
 		}
 
-		t.Run(rel, func(tt *testing.T) {
-			logger.T = tt
-			defer func() {
-				logger.T = t
-			}()
+		if b, ok := tb.(*testing.B); ok {
+			b.Run(rel, func(bb *testing.B) {
+				logger.TB = bb
+				defer func() {
+					logger.TB = tb
+				}()
 
-			runTestCase(tt, path, certs.GetCertificate, keys.GetKey)
-		})
+				runBenchmarkCase(bb, path, certs.GetCertificate, keys.GetKey)
+			})
+		} else {
+			tb.(*testing.T).Run(rel, func(tt *testing.T) {
+				logger.TB = tt
+				defer func() {
+					logger.TB = tb
+				}()
+
+				runTestCase(tt, path, certs.GetCertificate, keys.GetKey)
+			})
+		}
+
 		return nil
 	}); err != nil {
-		t.Error(err)
+		tb.Error(err)
 	}
+}
+
+func TestRunner(t *testing.T) {
+	runner(t)
+}
+
+func BenchmarkRunner(b *testing.B) {
+	runner(b)
 }
 
 func fromHexChar(c byte) (b byte, skip bool, ok bool) {
@@ -87,10 +109,10 @@ func fromHexChar(c byte) (b byte, skip bool, ok bool) {
 	return 0, false, false
 }
 
-func parseTestCase(t *testing.T, path string) (request []byte, response []byte) {
+func parseTestCase(path string) (request, response []byte, err error) {
 	f, err := os.Open(path)
 	if err != nil {
-		t.Fatal(err)
+		return
 	}
 
 	var req, resp bytes.Buffer
@@ -103,7 +125,8 @@ func parseTestCase(t *testing.T, path string) (request []byte, response []byte) 
 
 		if bytes.Equal(data, []byte{'-', '-', '-'}) {
 			if isResp {
-				t.Fatalf("invalid format: already in response")
+				err = errors.New("invalid format: already in response")
+				return
 			}
 
 			isResp = true
@@ -119,14 +142,16 @@ func parseTestCase(t *testing.T, path string) (request []byte, response []byte) 
 			if skip {
 				continue
 			} else if !ok {
-				t.Fatalf("invalid format: expected hex or space, got %c", data[i])
+				err = fmt.Errorf("invalid format: expected hex or space, got %c", data[i])
+				return
 			}
 
 			i++
 
 			b, _, ok := fromHexChar(data[i])
 			if !ok {
-				t.Fatalf("invalid format: expected hex, got %c", data[i])
+				err = fmt.Errorf("invalid format: expected hex, got %c", data[i])
+				return
 			}
 
 			if isResp {
@@ -137,15 +162,18 @@ func parseTestCase(t *testing.T, path string) (request []byte, response []byte) 
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		t.Fatal(err)
+	if err = scanner.Err(); err != nil {
+		return
 	}
 
-	return req.Bytes(), resp.Bytes()
+	return req.Bytes(), resp.Bytes(), nil
 }
 
 func runTestCase(t *testing.T, path string, getCert GetCertificate, getKey GetKey) {
-	req, resp := parseTestCase(t, path)
+	req, resp, err := parseTestCase(path)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	t.Logf("-> %x", req)
 	t.Logf("<- %x", resp)
@@ -159,5 +187,20 @@ func runTestCase(t *testing.T, path string, getCert GetCertificate, getKey GetKe
 		t.Error("invalid response")
 		t.Logf("expected: %02x", resp)
 		t.Logf("got:      %02x", got)
+	}
+}
+
+func runBenchmarkCase(b *testing.B, path string, getCert GetCertificate, getKey GetKey) {
+	req, _, err := parseTestCase(path)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		if _, err := handleRequest(req, getCert, getKey, false); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
