@@ -426,8 +426,6 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 		default:
 			b.WriteByte(byte(ErrorInternal))
 		}
-
-		err = nil
 	} else {
 		binary.Write(b, binary.BigEndian, uint16(len(op.Payload)))
 		b.Write(op.Payload)
@@ -441,7 +439,7 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 		b.Write(padding[:toPad])
 	}
 
-	out = b.Bytes()
+	out, err = b.Bytes(), nil
 	binary.BigEndian.PutUint16(out[2:], uint16(b.Len()-HeaderLength))
 
 	log.Printf("id: %d, elapsed: %s, request: %s, response: %s", id, time.Since(start),
