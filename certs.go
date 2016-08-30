@@ -345,13 +345,28 @@ func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, e
 		}
 	}
 
+	if !hasECDSA {
+		hasSHA256ECDSA, hasSHA384ECDSA, hasSHA512ECDSA = false, false, false
+	}
+
+	if !hasSECP256R1 {
+		hasSHA256ECDSA = false
+	}
+
+	if !hasSECP384R1 {
+		hasSHA384ECDSA = false
+	}
+
+	if !hasSECP521R1 {
+		hasSHA512ECDSA = false
+	}
+
 	err = ErrorCertNotFound
 
-	if !hasECDSA && !hasSHA1RSA &&
+	if !hasSHA1RSA &&
 		!hasSHA256RSA && !hasSHA256ECDSA &&
 		!hasSHA384RSA && !hasSHA384ECDSA &&
-		!hasSHA512RSA && !hasSHA512ECDSA &&
-		!hasSECP256R1 && !hasSECP384R1 && !hasSECP521R1 {
+		!hasSHA512RSA && !hasSHA512ECDSA {
 		return
 	}
 
@@ -370,9 +385,9 @@ func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, e
 			(sigAlg == x509.SHA256WithRSA && !hasSHA256RSA) ||
 			(sigAlg == x509.SHA384WithRSA && !hasSHA384RSA) ||
 			(sigAlg == x509.SHA512WithRSA && !hasSHA512RSA) ||
-			(sigAlg == x509.ECDSAWithSHA512 && (!hasSHA256ECDSA || !hasECDSA || !hasSECP256R1)) ||
-			(sigAlg == x509.ECDSAWithSHA384 && (!hasSHA384ECDSA || !hasECDSA || !hasSECP384R1)) ||
-			(sigAlg == x509.ECDSAWithSHA256 && (!hasSHA512ECDSA || !hasECDSA || !hasSECP521R1))) {
+			(sigAlg == x509.ECDSAWithSHA512 && !hasSHA256ECDSA) ||
+			(sigAlg == x509.ECDSAWithSHA384 && !hasSHA384ECDSA) ||
+			(sigAlg == x509.ECDSAWithSHA256 && !hasSHA512ECDSA)) {
 			out, outSKI, err = cert.payload, ski, nil
 			break
 		}
