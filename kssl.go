@@ -455,15 +455,13 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 	b.WriteByte(byte(TagPayload))
 
 	if err != nil {
-		var errCode Error
+		errCode := ErrorInternal
 
 		switch err := err.(type) {
 		case Error:
 			errCode = err
 		case WrappedError:
 			errCode = err.Code
-		default:
-			errCode = ErrorInternal
 		}
 
 		if errCode > 0xff {
