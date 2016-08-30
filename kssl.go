@@ -133,7 +133,7 @@ func (e Error) Error() string {
 	case ErrorCertNotFound:
 		return "certificate not found"
 	default:
-		return "unkown error"
+		return fmt.Sprintf("Error(%d)", e)
 	}
 }
 
