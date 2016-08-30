@@ -166,7 +166,7 @@ func (op Operation) String() string {
 		ski2 = op.SKI[:]
 	}
 
-	return fmt.Sprintf("Opcode: %s, SKI: %02x, Client IP: %s, Server IP: %s, SNI: %s", op.Opcode, ski2, op.ClientIP, op.ServerIP, op.SNI)
+	return fmt.Sprintf("Opcode: %s, SKI: %02x, Client IP: %s, Server IP: %s, SNI: %s, SigAlgs: %02x, ECDSA: %t", op.Opcode, ski2, op.ClientIP, op.ServerIP, op.SNI, op.SigAlgs, op.HasECDSACipher)
 }
 
 func processRequest(in Operation, getCert GetCertificate, getKey GetKey) (out Operation, err error) {
