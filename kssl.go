@@ -197,7 +197,7 @@ func processRequest(in Operation, getCert GetCertificate, getKey GetKey) (out Op
 
 		rsaKey, ok := key.(*rsa.PrivateKey)
 		if !ok {
-			err = WrappedError{ErrorCryptoFailed, errors.New("Key is not RSA")}
+			err = WrappedError{ErrorCryptoFailed, errors.New("request is RSA, but key is not")}
 			return
 		}
 
@@ -255,12 +255,12 @@ func processRequest(in Operation, getCert GetCertificate, getKey GetKey) (out Op
 	case OpRSASignMD5SHA1, OpRSASignSHA1, OpRSASignSHA224, OpRSASignSHA256, OpRSASignSHA384, OpRSASignSHA512,
 		OpRSAPSSSignSHA256, OpRSAPSSSignSHA384, OpRSAPSSSignSHA512:
 		if _, ok := key.Public().(*rsa.PublicKey); !ok {
-			err = WrappedError{ErrorCryptoFailed, errors.New("request is RSA, but key isn't")}
+			err = WrappedError{ErrorCryptoFailed, errors.New("request is RSA, but key is not")}
 			return
 		}
 	case OpECDSASignMD5SHA1, OpECDSASignSHA1, OpECDSASignSHA224, OpECDSASignSHA256, OpECDSASignSHA384, OpECDSASignSHA512:
 		if _, ok := key.Public().(*ecdsa.PublicKey); !ok {
-			err = WrappedError{ErrorCryptoFailed, errors.New("request is ECDSA, but key isn't")}
+			err = WrappedError{ErrorCryptoFailed, errors.New("request is ECDSA, but key is not")}
 			return
 		}
 	}
