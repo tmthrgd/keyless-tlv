@@ -1,13 +1,13 @@
 01 00       ; version
 00 05       ; length
-00 00 00 0f ; id
+00 00 00 2c ; id
 11          ; opcode tag
 00 02       ; length
 00 01       ; rsa decrypt
 ---
 01 00       ; version
 00 08       ; length
-00 00 00 0f ; id
+00 00 00 2c ; id
 11          ; opcode tag
 00 01       ; length
 ff          ; error
