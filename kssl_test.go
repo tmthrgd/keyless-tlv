@@ -204,7 +204,7 @@ func runBenchmarkCase(b *testing.B, path string, getCert GetCertificate, getKey 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := handleRequest(req, getCert, getKey, false); err != nil {
+		if _, err := handleRequest(append([]byte(nil), req...), getCert, getKey, false); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -441,7 +441,7 @@ func runBenchmarkSigningCase(b *testing.B, idx byte, h crypto.Hash, ecdsaOrPSS b
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := handleRequest(req, getCert, getKey, false); err != nil {
+		if _, err := handleRequest(append([]byte(nil), req...), getCert, getKey, false); err != nil {
 			b.Fatal(err)
 		}
 	}
