@@ -9,11 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"sync"
 
 	"github.com/cloudflare/cfssl/helpers"
@@ -21,107 +19,47 @@ import (
 
 type cert struct {
 	leaf    *x509.Certificate
+	ski     SKI
 	payload []byte
 }
 
-type sortSKIs struct {
-	skis []SKI
-	cert map[SKI]cert
-}
-
-func (s sortSKIs) Len() int {
-	return len(s.skis)
-}
-
-func (s sortSKIs) Less(i, j int) bool {
-	a := s.cert[s.skis[i]].leaf
-	b := s.cert[s.skis[j]].leaf
-
-	/* shift ecdsa keys to the start */
-	switch a.SignatureAlgorithm {
-	case x509.ECDSAWithSHA256, x509.ECDSAWithSHA384, x509.ECDSAWithSHA512:
-		switch b.SignatureAlgorithm {
-		case x509.ECDSAWithSHA256, x509.ECDSAWithSHA384, x509.ECDSAWithSHA512:
-		default:
-			return true
-		}
-	}
-
-	if pubA, ok := a.PublicKey.(*ecdsa.PublicKey); ok {
-		if pubB, ok := b.PublicKey.(*ecdsa.PublicKey); ok {
-			switch pubA.Curve {
-			case elliptic.P521():
-				switch pubB.Curve {
-				case elliptic.P384(),
-					elliptic.P256():
-					return true
-				}
-			case elliptic.P384():
-				switch pubB.Curve {
-				case elliptic.P256():
-					return true
-				}
-			case elliptic.P256():
-			default:
-				panic("not supported")
-			}
-		}
-	}
-
-	switch a.SignatureAlgorithm {
-	case x509.SHA512WithRSA, x509.ECDSAWithSHA512:
-		switch b.SignatureAlgorithm {
-		case x509.SHA512WithRSA, x509.ECDSAWithSHA512:
-		default:
-			return true
-		}
-	case x509.SHA384WithRSA, x509.ECDSAWithSHA384:
-		switch b.SignatureAlgorithm {
-		case x509.SHA384WithRSA, x509.ECDSAWithSHA384,
-			x509.SHA512WithRSA, x509.ECDSAWithSHA512:
-		default:
-			return true
-		}
-	case x509.SHA256WithRSA, x509.ECDSAWithSHA256:
-		switch b.SignatureAlgorithm {
-		case x509.SHA256WithRSA, x509.ECDSAWithSHA256,
-			x509.SHA384WithRSA, x509.ECDSAWithSHA384,
-			x509.SHA512WithRSA, x509.ECDSAWithSHA512:
-		default:
-			return true
-		}
-	case x509.SHA1WithRSA:
-	default:
-		panic("not supported")
-	}
-
-	return false
-}
-
-func (s sortSKIs) Swap(i, j int) {
-	s.skis[i], s.skis[j] = s.skis[j], s.skis[i]
+type certMap struct {
+	sha1RSA, sha256RSA, sha256ECDSA *cert
 }
 
 type certLoader struct {
 	sync.RWMutex
-	skis      map[SKI]cert
-	snis      map[string][]SKI
-	serverIPs map[string][]SKI
+	skis      map[SKI]*cert
+	snis      map[string]certMap
+	serverIPs map[string]certMap
 }
 
 func newCertLoader() *certLoader {
 	return &certLoader{
-		skis:      make(map[SKI]cert),
-		snis:      make(map[string][]SKI),
-		serverIPs: make(map[string][]SKI),
+		skis:      make(map[SKI]*cert),
+		snis:      make(map[string]certMap),
+		serverIPs: make(map[string]certMap),
 	}
+}
+
+func addCertToMap(m map[string]certMap, key string, cert *cert) {
+	certs := m[key]
+
+	switch cert.leaf.SignatureAlgorithm {
+	case x509.SHA1WithRSA:
+		certs.sha1RSA = cert
+	case x509.SHA256WithRSA:
+		certs.sha256RSA = cert
+	case x509.ECDSAWithSHA256:
+		certs.sha256ECDSA = cert
+	}
+
+	m[key] = certs
 }
 
 var crtExt = regexp.MustCompile(`.+\.(crt|pem)`)
 
-var didWarnP521 bool
-
-func (certs *certLoader) walker(path string, info os.FileInfo, err error) error {
+func (c *certLoader) walker(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		return err
 	}
@@ -144,29 +82,17 @@ func (certs *certLoader) walker(path string, info os.FileInfo, err error) error 
 		return errors.New("invalid file")
 	}
 
-	validCurve := true
 	pub, _ := x509s[0].PublicKey.(*ecdsa.PublicKey)
 	switch x509s[0].SignatureAlgorithm {
-	case x509.SHA1WithRSA, x509.SHA256WithRSA, x509.SHA384WithRSA, x509.SHA512WithRSA:
+	case x509.SHA1WithRSA:
+	case x509.SHA256WithRSA:
 	case x509.ECDSAWithSHA256:
-		validCurve = pub.Curve == elliptic.P256()
-	case x509.ECDSAWithSHA384:
-		validCurve = pub.Curve == elliptic.P384()
-	case x509.ECDSAWithSHA512:
-		validCurve = pub.Curve == elliptic.P521()
-
-		if validCurve && !didWarnP521 {
-			log.Printf("certificates with P-521 curves will fail with BoringSSL clients (e.g. Google Chrome)")
-
-			didWarnP521 = true
+		if pub.Curve != elliptic.P256() {
+			return fmt.Errorf("unsupported elliptic curve '%s' for certificate signature algorithm '%s'",
+				pub.Params().Name, x509s[0].SignatureAlgorithm)
 		}
 	default:
-		return errors.New("unsupported certificate signature algorithm")
-	}
-
-	if !validCurve {
-		return fmt.Errorf("unsupported elliptic curve '%s' for certificate signature algorithm '%s'",
-			pub.Params().Name, x509s[0].SignatureAlgorithm)
+		return fmt.Errorf("unsupported certificate signature algorithm '%s'", x509s[0].SignatureAlgorithm)
 	}
 
 	ski, err := GetSKI(x509s[0].PublicKey)
@@ -181,33 +107,33 @@ func (certs *certLoader) walker(path string, info os.FileInfo, err error) error 
 		b.Write(x509.Raw)
 	}
 
-	certs.Lock()
-	certs.skis[ski] = cert{
+	cert := &cert{
 		leaf:    x509s[0],
+		ski:     ski,
 		payload: b.Bytes(),
 	}
 
+	c.Lock()
+	c.skis[ski] = cert
+
 	if dnsname := x509s[0].Subject.CommonName; len(dnsname) != 0 {
-		certs.snis[dnsname] = append(certs.snis[dnsname], ski)
-		sort.Sort(sortSKIs{certs.snis[dnsname], certs.skis})
+		addCertToMap(c.snis, dnsname, cert)
 	}
 
 	for _, dnsname := range x509s[0].DNSNames {
-		certs.snis[dnsname] = append(certs.snis[dnsname], ski)
-		sort.Sort(sortSKIs{certs.snis[dnsname], certs.skis})
+		addCertToMap(c.snis, dnsname, cert)
 	}
 
 	for _, ip := range x509s[0].IPAddresses {
-		certs.serverIPs[string(ip)] = append(certs.serverIPs[string(ip)], ski)
-		sort.Sort(sortSKIs{certs.serverIPs[string(ip)], certs.skis})
+		addCertToMap(c.serverIPs, string(ip), cert)
 	}
 
-	certs.Unlock()
+	c.Unlock()
 	return nil
 }
 
-func (certs *certLoader) LoadFromDir(dir string) error {
-	return filepath.Walk(dir, certs.walker)
+func (c *certLoader) LoadFromDir(dir string) error {
+	return filepath.Walk(dir, c.walker)
 }
 
 const (
@@ -229,29 +155,26 @@ const (
 	sslED448   = 0x0704
 )
 
-func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, err error) {
+func (c *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, err error) {
 	if op.SKI.Valid() {
-		certs.RLock()
+		c.RLock()
 
-		if cert, ok := certs.skis[op.SKI]; ok {
-			out, outSKI = cert.payload, op.SKI
+		if cert, ok := c.skis[op.SKI]; ok {
+			out, outSKI = cert.payload, cert.ski
 		} else {
 			err = ErrorCertNotFound
 		}
 
-		certs.RUnlock()
+		c.RUnlock()
 		return
 	}
 
-	if len(op.SigAlgs) == 0 || (len(op.SNI) == 0 && op.ServerIP == nil) {
+	if len(op.SNI) == 0 && op.ServerIP == nil {
 		err = ErrorCertNotFound
 		return
 	}
 
-	var hasSHA1RSA,
-		hasSHA256RSA, hasSHA256ECDSA,
-		hasSHA384RSA, hasSHA384ECDSA,
-		hasSHA512RSA, hasSHA512ECDSA bool
+	var hasSHA1RSA, hasSHA256RSA, hasSHA256ECDSA bool
 
 	for i := 0; i < len(op.SigAlgs); i += 2 {
 		switch binary.BigEndian.Uint16(op.SigAlgs[i:]) {
@@ -259,55 +182,52 @@ func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, e
 			hasSHA1RSA = true
 		case sslRSASHA256:
 			hasSHA256RSA = true
-		case sslRSASHA384:
-			hasSHA384RSA = true
-		case sslRSASHA512:
-			hasSHA512RSA = true
 		case sslECDSASHA256:
 			hasSHA256ECDSA = true
-		case sslECDSASHA384:
-			hasSHA384ECDSA = true
-		case sslECDSASHA512:
-			hasSHA512ECDSA = true
 		}
-	}
 
-	if !op.HasECDSACipher {
-		hasSHA256ECDSA, hasSHA384ECDSA, hasSHA512ECDSA = false, false, false
-	}
-
-	err = ErrorCertNotFound
-
-	if !hasSHA1RSA &&
-		!hasSHA256RSA && !hasSHA256ECDSA &&
-		!hasSHA384RSA && !hasSHA384ECDSA &&
-		!hasSHA512RSA && !hasSHA512ECDSA {
-		return
-	}
-
-	certs.RLock()
-
-	skis, ok := certs.snis[string(op.SNI)]
-	if !ok {
-		skis = certs.serverIPs[string(op.ServerIP)]
-	}
-
-	for _, ski := range skis {
-		cert := certs.skis[ski]
-
-		sigAlg := cert.leaf.SignatureAlgorithm
-		if !((sigAlg == x509.SHA1WithRSA && !hasSHA1RSA) ||
-			(sigAlg == x509.SHA256WithRSA && !hasSHA256RSA) ||
-			(sigAlg == x509.SHA384WithRSA && !hasSHA384RSA) ||
-			(sigAlg == x509.SHA512WithRSA && !hasSHA512RSA) ||
-			(sigAlg == x509.ECDSAWithSHA256 && !hasSHA256ECDSA) ||
-			(sigAlg == x509.ECDSAWithSHA384 && !hasSHA384ECDSA) ||
-			(sigAlg == x509.ECDSAWithSHA512 && !hasSHA512ECDSA)) {
-			out, outSKI, err = cert.payload, ski, nil
+		if hasSHA1RSA && hasSHA256RSA && hasSHA256ECDSA {
 			break
 		}
 	}
 
-	certs.RUnlock()
+	hasSHA256ECDSA = hasSHA256ECDSA && op.HasECDSACipher
+
+	c.RLock()
+
+	certs, ok := c.snis[string(op.SNI)]
+	if !ok {
+		certs, ok = c.serverIPs[string(op.ServerIP)]
+	}
+
+	if !ok {
+		err = ErrorCertNotFound
+	} else if len(op.SigAlgs) != 0 {
+		if cert := certs.sha256ECDSA; hasSHA256ECDSA && cert != nil {
+			out, outSKI = cert.payload, cert.ski
+		} else if cert := certs.sha256RSA; hasSHA256RSA && cert != nil {
+			out, outSKI = cert.payload, cert.ski
+		} else if cert := certs.sha1RSA; hasSHA1RSA && cert != nil {
+			out, outSKI = cert.payload, cert.ski
+		} else if cert := certs.sha256RSA; cert != nil {
+			out, outSKI = cert.payload, cert.ski
+		} else if cert := certs.sha256ECDSA; cert != nil {
+			out, outSKI = cert.payload, cert.ski
+		} else {
+			err = ErrorCertNotFound
+		}
+	} else if cert := certs.sha256RSA; len(op.SNI) != 0 && cert != nil {
+		out, outSKI = cert.payload, cert.ski
+	} else if cert := certs.sha1RSA; cert != nil {
+		out, outSKI = cert.payload, cert.ski
+	} else if cert := certs.sha256RSA; cert != nil {
+		out, outSKI = cert.payload, cert.ski
+	} else if cert := certs.sha256ECDSA; cert != nil {
+		out, outSKI = cert.payload, cert.ski
+	} else {
+		err = ErrorCertNotFound
+	}
+
+	c.RUnlock()
 	return
 }
