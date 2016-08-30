@@ -18,7 +18,6 @@ import (
 )
 
 type cert struct {
-	leaf    *x509.Certificate
 	ski     SKI
 	payload []byte
 }
@@ -42,10 +41,10 @@ func newCertLoader() *certLoader {
 	}
 }
 
-func addCertToMap(m map[string]certMap, key string, cert *cert) {
+func addCertToMap(m map[string]certMap, key string, cert *cert, leaf *x509.Certificate) {
 	certs := m[key]
 
-	switch cert.leaf.SignatureAlgorithm {
+	switch leaf.SignatureAlgorithm {
 	case x509.SHA1WithRSA:
 		certs.sha1RSA = cert
 	case x509.SHA256WithRSA:
@@ -108,7 +107,6 @@ func (c *certLoader) walker(path string, info os.FileInfo, err error) error {
 	}
 
 	cert := &cert{
-		leaf:    x509s[0],
 		ski:     ski,
 		payload: b.Bytes(),
 	}
@@ -117,15 +115,15 @@ func (c *certLoader) walker(path string, info os.FileInfo, err error) error {
 	c.skis[ski] = cert
 
 	if dnsname := x509s[0].Subject.CommonName; len(dnsname) != 0 {
-		addCertToMap(c.snis, dnsname, cert)
+		addCertToMap(c.snis, dnsname, cert, x509s[0])
 	}
 
 	for _, dnsname := range x509s[0].DNSNames {
-		addCertToMap(c.snis, dnsname, cert)
+		addCertToMap(c.snis, dnsname, cert, x509s[0])
 	}
 
 	for _, ip := range x509s[0].IPAddresses {
-		addCertToMap(c.serverIPs, string(ip), cert)
+		addCertToMap(c.serverIPs, string(ip), cert, x509s[0])
 	}
 
 	c.Unlock()
