@@ -366,17 +366,13 @@ func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, e
 		cert := certs.skis[ski]
 
 		sigAlg := cert.leaf.SignatureAlgorithm
-		pub, ok := cert.leaf.PublicKey.(*ecdsa.PublicKey)
 		if !((sigAlg == x509.SHA1WithRSA && !hasSHA1RSA) ||
 			(sigAlg == x509.SHA256WithRSA && !hasSHA256RSA) ||
 			(sigAlg == x509.SHA384WithRSA && !hasSHA384RSA) ||
 			(sigAlg == x509.SHA512WithRSA && !hasSHA512RSA) ||
-			(sigAlg == x509.ECDSAWithSHA512 && (!hasSHA256ECDSA || !hasECDSA)) ||
-			(sigAlg == x509.ECDSAWithSHA384 && (!hasSHA384ECDSA || !hasECDSA)) ||
-			(sigAlg == x509.ECDSAWithSHA256 && (!hasSHA512ECDSA || !hasECDSA)) ||
-			(ok && pub.Curve == elliptic.P256() && !hasSECP256R1) ||
-			(ok && pub.Curve == elliptic.P384() && !hasSECP384R1) ||
-			(ok && pub.Curve == elliptic.P521() && !hasSECP521R1)) {
+			(sigAlg == x509.ECDSAWithSHA512 && (!hasSHA256ECDSA || !hasECDSA || !hasSECP256R1)) ||
+			(sigAlg == x509.ECDSAWithSHA384 && (!hasSHA384ECDSA || !hasECDSA || !hasSECP384R1)) ||
+			(sigAlg == x509.ECDSAWithSHA256 && (!hasSHA512ECDSA || !hasECDSA || !hasSECP521R1))) {
 			out, outSKI, err = cert.payload, ski, nil
 			break
 		}
