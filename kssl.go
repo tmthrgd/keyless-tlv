@@ -100,15 +100,15 @@ const (
 type Error uint16
 
 const (
-	ErrorCryptoFailed     Error = iota + 1 // Cryptographic error
-	ErrorKeyNotFound                       // Private key not found
-	ErrorDiskRead                          // [Deprecated]: Disk read failure
-	ErrorVersionMismatch                   // Client-Server version mismatch
-	ErrorBadOpcode                         // Invalid/unsupported opcode
-	ErrorUnexpectedOpcode                  // Opcode sent at wrong time/direction
-	ErrorFormat                            // Malformed message
-	ErrorInternal                          // Other internal error
-	ErrorCertNotFound                      // Certificate not found
+	ErrorCryptoFailed     Error = 0x0001 // Cryptographic error
+	ErrorKeyNotFound      Error = 0x0002 // Private key not found
+	ErrorDiskRead         Error = 0x0003 // [Deprecated]: Disk read failure
+	ErrorVersionMismatch  Error = 0x0004 // Client-Server version mismatch
+	ErrorBadOpcode        Error = 0x0005 // Invalid/unsupported opcode
+	ErrorUnexpectedOpcode Error = 0x0006 // Opcode sent at wrong time/direction
+	ErrorFormat           Error = 0x0007 // Malformed message
+	ErrorInternal         Error = 0x0008 // Other internal error
+	ErrorCertNotFound     Error = 0x0009 // Certificate not found
 
 	// The range [0xc000, 0xffff) is reserved for private errors.
 )
