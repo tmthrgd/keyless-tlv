@@ -53,50 +53,52 @@ const (
 	TagECDSACipher     Tag = 0xc1 // One iff ECDSA ciphers are supported
 )
 
-type Op byte
+type Op uint16
 
 const (
 	// Decrypt data using RSA with or without padding
-	OpRSADecrypt    Op = 0x01
-	OpRSADecryptRaw Op = 0x08
+	OpRSADecrypt    Op = 0x0001
+	OpRSADecryptRaw Op = 0x0008
 
 	// Sign data using RSA
-	OpRSASignMD5SHA1 Op = 0x02
-	OpRSASignSHA1    Op = 0x03
-	OpRSASignSHA224  Op = 0x04
-	OpRSASignSHA256  Op = 0x05
-	OpRSASignSHA384  Op = 0x06
-	OpRSASignSHA512  Op = 0x07
+	OpRSASignMD5SHA1 Op = 0x0002
+	OpRSASignSHA1    Op = 0x0003
+	OpRSASignSHA224  Op = 0x0004
+	OpRSASignSHA256  Op = 0x0005
+	OpRSASignSHA384  Op = 0x0006
+	OpRSASignSHA512  Op = 0x0007
 
 	// Sign data using RSA-PSS
-	OpRSAPSSSignSHA256 Op = 0x35
-	OpRSAPSSSignSHA384 Op = 0x36
-	OpRSAPSSSignSHA512 Op = 0x37
+	OpRSAPSSSignSHA256 Op = 0x0035
+	OpRSAPSSSignSHA384 Op = 0x0036
+	OpRSAPSSSignSHA512 Op = 0x0037
 
 	// Sign data using ECDSA
-	OpECDSASignMD5SHA1 Op = 0x12
-	OpECDSASignSHA1    Op = 0x13
-	OpECDSASignSHA224  Op = 0x14
-	OpECDSASignSHA256  Op = 0x15
-	OpECDSASignSHA384  Op = 0x16
-	OpECDSASignSHA512  Op = 0x17
+	OpECDSASignMD5SHA1 Op = 0x0012
+	OpECDSASignSHA1    Op = 0x0013
+	OpECDSASignSHA224  Op = 0x0014
+	OpECDSASignSHA256  Op = 0x0015
+	OpECDSASignSHA384  Op = 0x0016
+	OpECDSASignSHA512  Op = 0x0017
 
 	// Request a certificate and chain
-	OpGetCertificate Op = 0x20
+	OpGetCertificate Op = 0x0020
 
 	// [Deprecated]: A test message
-	OpPing Op = 0xF1
-	OpPong Op = 0xF2
+	OpPing Op = 0x00F1
+	OpPong Op = 0x00F2
 
 	// [Deprecated]: A verification message
-	OpActivate Op = 0xF3
+	OpActivate Op = 0x00F3
 
 	// Response
-	OpResponse Op = 0xF0
-	OpError    Op = 0xFF
+	OpResponse Op = 0x00F0
+	OpError    Op = 0x00FF
+
+	// The range [0xc000, 0xffff) is reserved for private opcodes.
 )
 
-type Error byte
+type Error uint16
 
 const (
 	ErrorCryptoFailed     Error = iota + 1 // Cryptographic error
@@ -108,6 +110,8 @@ const (
 	ErrorFormat                            // Malformed message
 	ErrorInternal                          // Other internal error
 	ErrorCertNotFound                      // Certificate not found
+
+	// The range [0xc000, 0xffff) is reserved for private errors.
 )
 
 func (e Error) Error() string {
@@ -343,12 +347,20 @@ func unmarshalReqiest(in []byte, r *bytes.Reader) (op Operation, err error) {
 
 			op.SigAlgs = data
 		case TagOpcode:
-			if len(data) != 1 {
-				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", TagOpcode, len(data))}
+			switch len(data) {
+			case 1:
+				op.Opcode = Op(data[0])
+			case 2:
+				op.Opcode = Op(binary.BigEndian.Uint16(data))
+
+				if op.Opcode < 0x100 {
+					err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 bytes for opcodes in [0x00, 0xff], was 2 bytes", TagOpcode)}
+					return
+				}
+			default:
+				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 or 2 bytes, was %d bytes", TagOpcode, len(data))}
 				return
 			}
-
-			op.Opcode = Op(data[0])
 		case TagPayload:
 			op.Payload = data
 		case TagPadding:
@@ -412,8 +424,16 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 		op, err = processRequest(op, getCert, getKey)
 	}
 
+	var opcode Op
+
 	if err != nil {
 		log.Printf("id: %d, %v", id, err)
+
+		opcode = OpError
+	} else if op.Opcode != 0 {
+		opcode = op.Opcode
+	} else {
+		opcode = OpResponse
 	}
 
 	b := bytes.NewBuffer(in[:0])
@@ -425,14 +445,13 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 
 	// opcode tag
 	b.WriteByte(byte(TagOpcode))
-	binary.Write(b, binary.BigEndian, uint16(1))
 
-	if err != nil {
-		b.WriteByte(byte(OpError))
-	} else if op.Opcode != 0 {
-		b.WriteByte(byte(op.Opcode))
+	if opcode > 0xff {
+		binary.Write(b, binary.BigEndian, uint16(2))
+		binary.Write(b, binary.BigEndian, uint16(opcode))
 	} else {
-		b.WriteByte(byte(OpResponse))
+		binary.Write(b, binary.BigEndian, uint16(1))
+		b.WriteByte(byte(opcode))
 	}
 
 	if op.SKI.Valid() {
@@ -446,15 +465,23 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 	b.WriteByte(byte(TagPayload))
 
 	if err != nil {
-		binary.Write(b, binary.BigEndian, uint16(1))
+		var errCode Error
 
 		switch err := err.(type) {
 		case Error:
-			b.WriteByte(byte(err))
+			errCode = err
 		case WrappedError:
-			b.WriteByte(byte(err.Code))
+			errCode = err.Code
 		default:
-			b.WriteByte(byte(ErrorInternal))
+			errCode = ErrorInternal
+		}
+
+		if errCode > 0xff {
+			binary.Write(b, binary.BigEndian, uint16(2))
+			binary.Write(b, binary.BigEndian, uint16(errCode))
+		} else {
+			binary.Write(b, binary.BigEndian, uint16(1))
+			b.WriteByte(byte(errCode))
 		}
 	} else {
 		binary.Write(b, binary.BigEndian, uint16(len(op.Payload)))

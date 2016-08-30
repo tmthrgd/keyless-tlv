@@ -1,9 +1,8 @@
 01 00       ; version
-00 05       ; length
+00 03       ; length
 00 00 00 0f ; id
 11          ; opcode tag
-00 02       ; length
-03 03       ; rsa sign sha1 x2
+00 00       ; length
 ---
 01 00       ; version
 00 08       ; length
