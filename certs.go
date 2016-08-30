@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -119,6 +119,8 @@ func newCertLoader() *certLoader {
 
 var crtExt = regexp.MustCompile(`.+\.(crt|pem)`)
 
+var didWarnP521 bool
+
 func (certs *certLoader) walker(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		return err
@@ -152,6 +154,12 @@ func (certs *certLoader) walker(path string, info os.FileInfo, err error) error 
 		validCurve = pub.Curve == elliptic.P384()
 	case x509.ECDSAWithSHA512:
 		validCurve = pub.Curve == elliptic.P521()
+
+		if validCurve && !didWarnP521 {
+			log.Printf("certificates with P-521 curves will fail with BoringSSL clients (e.g. Google Chrome)")
+
+			didWarnP521 = true
+		}
 	default:
 		return errors.New("unsupported certificate signature algorithm")
 	}
@@ -251,8 +259,7 @@ func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, e
 	var hasSHA1RSA,
 		hasSHA256RSA, hasSHA256ECDSA,
 		hasSHA384RSA, hasSHA384ECDSA,
-		hasSHA512RSA, hasSHA512ECDSA,
-		hasSECP256R1, hasSECP384R1, hasSECP521R1 bool
+		hasSHA512RSA, hasSHA512ECDSA bool
 
 	for i := 0; i < len(op.SigAlgs); i += 2 {
 		switch binary.BigEndian.Uint16(op.SigAlgs[i:]) {
@@ -273,31 +280,8 @@ func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, e
 		}
 	}
 
-	for i := 0; i < len(op.SupportedGroups); i += 2 {
-		switch tls.CurveID(binary.BigEndian.Uint16(op.SupportedGroups[i:])) {
-		case tls.CurveP256:
-			hasSECP256R1 = true
-		case tls.CurveP384:
-			hasSECP384R1 = true
-		case tls.CurveP521:
-			hasSECP521R1 = true
-		}
-	}
-
 	if !op.HasECDSACipher {
 		hasSHA256ECDSA, hasSHA384ECDSA, hasSHA512ECDSA = false, false, false
-	}
-
-	if !hasSECP256R1 {
-		hasSHA256ECDSA = false
-	}
-
-	if !hasSECP384R1 {
-		hasSHA384ECDSA = false
-	}
-
-	if !hasSECP521R1 {
-		hasSHA512ECDSA = false
 	}
 
 	err = ErrorCertNotFound

@@ -8,14 +8,14 @@ const (
 	_Tag_name_0 = "TagDigestTagSNITagClientIPTagSKITagServerIPTagSigAlgs"
 	_Tag_name_1 = "TagOpcodeTagPayload"
 	_Tag_name_2 = "TagPadding"
-	_Tag_name_3 = "TagSupportedGroupsTagECDSACipher"
+	_Tag_name_3 = "TagECDSACipher"
 )
 
 var (
 	_Tag_index_0 = [...]uint8{0, 9, 15, 26, 32, 43, 53}
 	_Tag_index_1 = [...]uint8{0, 9, 19}
 	_Tag_index_2 = [...]uint8{0, 10}
-	_Tag_index_3 = [...]uint8{0, 18, 32}
+	_Tag_index_3 = [...]uint8{0, 14}
 )
 
 func (i Tag) String() string {
@@ -28,9 +28,8 @@ func (i Tag) String() string {
 		return _Tag_name_1[_Tag_index_1[i]:_Tag_index_1[i+1]]
 	case i == 32:
 		return _Tag_name_2
-	case 192 <= i && i <= 193:
-		i -= 192
-		return _Tag_name_3[_Tag_index_3[i]:_Tag_index_3[i+1]]
+	case i == 192:
+		return _Tag_name_3
 	default:
 		return fmt.Sprintf("Tag(%d)", i)
 	}

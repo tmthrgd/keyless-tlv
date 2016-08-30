@@ -49,8 +49,7 @@ const (
 	TagPadding  Tag = 0x20 // Padding
 
 	// The range [0xc0, 0xff) is reserved for private tags.
-	TagSupportedGroups Tag = 0xc0 // Supported groups
-	TagECDSACipher     Tag = 0xc1 // One iff ECDSA ciphers are supported
+	TagECDSACipher Tag = 0xc0 // One iff ECDSA ciphers are supported
 )
 
 type Op uint16
@@ -158,8 +157,7 @@ type Operation struct {
 	SigAlgs            []byte
 	SNI                []byte
 
-	SupportedGroups []byte
-	HasECDSACipher  bool
+	HasECDSACipher bool
 }
 
 func (op Operation) String() string {
@@ -364,13 +362,6 @@ func unmarshalReqiest(in []byte, r *bytes.Reader) (op Operation, err error) {
 			op.Payload = data
 		case TagPadding:
 			// ignore; should this be checked to ensure it is zero?
-		case TagSupportedGroups:
-			if len(data)%2 != 0 {
-				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be even number of bytes, was %d bytes", TagSupportedGroups, len(data))}
-				return
-			}
-
-			op.SupportedGroups = data
 		case TagECDSACipher:
 			if len(data) != 1 {
 				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", TagECDSACipher, len(data))}

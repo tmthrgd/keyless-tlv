@@ -1,7 +1,7 @@
 01 00       ; version
 00 03       ; length
 00 00 00 1a ; id
-c1          ; ecdsa cipher tag
+c0          ; ecdsa cipher tag
 00 00       ; length
 ---
 01 00       ; version
