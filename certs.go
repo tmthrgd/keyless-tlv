@@ -19,8 +19,6 @@ import (
 	"github.com/cloudflare/cfssl/helpers"
 )
 
-//go:generate stringer -type=gcTag -output=certs_string.go
-
 type cert struct {
 	leaf    *x509.Certificate
 	payload []byte
@@ -245,107 +243,48 @@ func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, e
 		return
 	}
 
-	if len(op.Payload) == 0 || (len(op.SNI) == 0 && op.ServerIP == nil) {
+	if len(op.SigAlgs) == 0 || (len(op.SNI) == 0 && op.ServerIP == nil) {
 		err = ErrorCertNotFound
 		return
 	}
 
-	var hasECDSA, hasSHA1RSA,
+	var hasSHA1RSA,
 		hasSHA256RSA, hasSHA256ECDSA,
 		hasSHA384RSA, hasSHA384ECDSA,
 		hasSHA512RSA, hasSHA512ECDSA,
 		hasSECP256R1, hasSECP384R1, hasSECP521R1 bool
 
-	r := bytes.NewReader(op.Payload)
-
-	seen := make(map[gcTag]struct{})
-
-	for r.Len() != 0 {
-		var tag byte
-		if tag, err = r.ReadByte(); err != nil {
-			err = WrappedError{ErrorFormat, err}
-			return
-		}
-
-		var length uint16
-		if err = binary.Read(r, binary.BigEndian, &length); err != nil {
-			err = WrappedError{ErrorFormat, err}
-			return
-		}
-
-		if int(length) > r.Len() {
-			err = WrappedError{ErrorFormat, fmt.Errorf("%s length is %dB beyond end of body", gcTag(tag), int(length)-r.Len())}
-			return
-		}
-
-		if _, saw := seen[gcTag(tag)]; saw {
-			err = WrappedError{ErrorFormat, fmt.Errorf("tag %s seen multiple times", gcTag(tag))}
-			return
-		}
-		seen[gcTag(tag)] = struct{}{}
-
-		switch gcTag(tag) {
-		case tagSignatureAlgorithms:
-			if length%2 != 0 {
-				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be even number of bytes, was %d bytes", tagSignatureAlgorithms, length)}
-				return
-			}
-
-			for j := 0; j < int(length); j += 2 {
-				var scheme uint16
-				binary.Read(r, binary.BigEndian, &scheme)
-
-				switch scheme {
-				case sslRSASHA1:
-					hasSHA1RSA = true
-				case sslRSASHA256:
-					hasSHA256RSA = true
-				case sslRSASHA384:
-					hasSHA384RSA = true
-				case sslRSASHA512:
-					hasSHA512RSA = true
-				case sslECDSASHA256:
-					hasSHA256ECDSA = true
-				case sslECDSASHA384:
-					hasSHA384ECDSA = true
-				case sslECDSASHA512:
-					hasSHA512ECDSA = true
-				}
-			}
-		case tagSupportedGroups:
-			if length%2 != 0 {
-				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be even number of bytes, was %d bytes", tagSupportedGroups, length)}
-				return
-			}
-
-			for j := 0; j < int(length); j += 2 {
-				var curve uint16
-				binary.Read(r, binary.BigEndian, &curve)
-
-				switch tls.CurveID(curve) {
-				case tls.CurveP256:
-					hasSECP256R1 = true
-				case tls.CurveP384:
-					hasSECP384R1 = true
-				case tls.CurveP521:
-					hasSECP521R1 = true
-				}
-			}
-		case tagECDSACipher:
-			if length != 1 {
-				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", tagECDSACipher, length)}
-				return
-			}
-
-			data, _ := r.ReadByte()
-			hasECDSA = data != 0
-		default:
-			err = WrappedError{ErrorFormat, fmt.Errorf("unknown tag: %s", gcTag(tag))}
-			return
+	for i := 0; i < len(op.SigAlgs); i += 2 {
+		switch binary.BigEndian.Uint16(op.SigAlgs[i:]) {
+		case sslRSASHA1:
+			hasSHA1RSA = true
+		case sslRSASHA256:
+			hasSHA256RSA = true
+		case sslRSASHA384:
+			hasSHA384RSA = true
+		case sslRSASHA512:
+			hasSHA512RSA = true
+		case sslECDSASHA256:
+			hasSHA256ECDSA = true
+		case sslECDSASHA384:
+			hasSHA384ECDSA = true
+		case sslECDSASHA512:
+			hasSHA512ECDSA = true
 		}
 	}
 
-	if !hasECDSA {
+	for i := 0; i < len(op.SupportedGroups); i += 2 {
+		switch tls.CurveID(binary.BigEndian.Uint16(op.SupportedGroups[i:])) {
+		case tls.CurveP256:
+			hasSECP256R1 = true
+		case tls.CurveP384:
+			hasSECP384R1 = true
+		case tls.CurveP521:
+			hasSECP521R1 = true
+		}
+	}
+
+	if !op.HasECDSACipher {
 		hasSHA256ECDSA, hasSHA384ECDSA, hasSHA512ECDSA = false, false, false
 	}
 

@@ -43,9 +43,14 @@ const (
 	TagClientIP Tag = 0x03 // Client IP Address
 	TagSKI      Tag = 0x04 // SHA1 hash of Subject Key Info
 	TagServerIP Tag = 0x05 // Server IP Address
+	TagSigAlgs  Tag = 0x06 // Signature Algorithms
 	TagOpcode   Tag = 0x11 // Request operation code (see Op)
 	TagPayload  Tag = 0x12 // Request/response payload
 	TagPadding  Tag = 0x20 // Padding
+
+	// The range [0xc0, 0xff) is reserved for private tags.
+	TagSupportedGroups Tag = 0xc0 // Supported groups
+	TagECDSACipher     Tag = 0xc1 // One iff ECDSA ciphers are supported
 )
 
 type Op byte
@@ -146,7 +151,11 @@ type Operation struct {
 	Payload            []byte
 	SKI                SKI
 	ClientIP, ServerIP net.IP
+	SigAlgs            []byte
 	SNI                []byte
+
+	SupportedGroups []byte
+	HasECDSACipher  bool
 }
 
 func (op Operation) String() string {
@@ -326,6 +335,13 @@ func unmarshalReqiest(in []byte, r *bytes.Reader) (op Operation, err error) {
 			}
 
 			op.ServerIP = data
+		case TagSigAlgs:
+			if len(data)%2 != 0 {
+				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be even number of bytes, was %d bytes", TagSigAlgs, len(data))}
+				return
+			}
+
+			op.SigAlgs = data
 		case TagOpcode:
 			if len(data) != 1 {
 				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", TagOpcode, len(data))}
@@ -337,6 +353,20 @@ func unmarshalReqiest(in []byte, r *bytes.Reader) (op Operation, err error) {
 			op.Payload = data
 		case TagPadding:
 			// ignore; should this be checked to ensure it is zero?
+		case TagSupportedGroups:
+			if len(data)%2 != 0 {
+				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be even number of bytes, was %d bytes", TagSupportedGroups, len(data))}
+				return
+			}
+
+			op.SupportedGroups = data
+		case TagECDSACipher:
+			if len(data) != 1 {
+				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", TagECDSACipher, len(data))}
+				return
+			}
+
+			op.HasECDSACipher = data[0]&0x01 != 0
 		default:
 			err = WrappedError{ErrorFormat, fmt.Errorf("unknown tag: %s", Tag(tag))}
 			return

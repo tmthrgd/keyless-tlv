@@ -1,17 +1,9 @@
 01 00       ; version
-00 0f       ; length
+00 04       ; length
 00 00 00 19 ; id
-11          ; opcode tag
-00 01       ; length
-20          ; get certificate
-02          ; sni tag
+c0          ; supported groups tag
 00 01       ; length
 00          ; value
-12          ; payload tag
-00 04       ; length
-02          ;  supported groups tag
-00 01       ;  length
-00          ;  value
 ---
 01 00       ; version
 00 08       ; length

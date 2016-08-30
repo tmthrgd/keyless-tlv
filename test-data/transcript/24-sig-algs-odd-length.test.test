@@ -1,17 +1,9 @@
 01 00       ; version
-00 0f       ; length
+00 04       ; length
 00 00 00 18 ; id
-11          ; opcode tag
-00 01       ; length
-20          ; get certificate
-02          ; sni tag
+06          ; signature algorithms tag
 00 01       ; length
 00          ; value
-12          ; payload tag
-00 04       ; length
-01          ;  signature algorithms tag
-00 01       ;  length
-00          ;  value
 ---
 01 00       ; version
 00 08       ; length
