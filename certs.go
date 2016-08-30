@@ -81,12 +81,11 @@ func (c *certLoader) walker(path string, info os.FileInfo, err error) error {
 		return errors.New("invalid file")
 	}
 
-	pub, _ := x509s[0].PublicKey.(*ecdsa.PublicKey)
 	switch x509s[0].SignatureAlgorithm {
 	case x509.SHA1WithRSA:
 	case x509.SHA256WithRSA:
 	case x509.ECDSAWithSHA256:
-		if pub.Curve != elliptic.P256() {
+		if pub := x509s[0].PublicKey.(*ecdsa.PublicKey); pub.Curve != elliptic.P256() {
 			return fmt.Errorf("unsupported elliptic curve '%s' for certificate signature algorithm '%s'",
 				pub.Params().Name, x509s[0].SignatureAlgorithm)
 		}
