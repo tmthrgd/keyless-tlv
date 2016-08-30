@@ -25,11 +25,17 @@ func newKeyLoader() *keyLoader {
 	}
 }
 
-func (k *keyLoader) GetKey(ski SKI) (priv crypto.Signer, ok bool) {
+func (k *keyLoader) GetKey(ski SKI) (priv crypto.Signer, err error) {
+	var ok bool
+
 	if ski.Valid() {
 		k.RLock()
 		priv, ok = k.skis[ski]
 		k.RUnlock()
+	}
+
+	if !ok {
+		err = ErrorKeyNotFound
 	}
 
 	return

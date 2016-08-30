@@ -22,7 +22,7 @@ import (
 //go:generate stringer -type=Tag,Op -output=kssl_string.go
 
 type GetCertificate func(op Operation) ([]byte, SKI, error)
-type GetKey func(ski SKI) (crypto.Signer, bool)
+type GetKey func(ski SKI) (crypto.Signer, error)
 
 const (
 	VersionMajor = 1
@@ -192,9 +192,8 @@ func processRequest(in Operation, getCert GetCertificate, getKey GetKey) (out Op
 			return
 		}
 
-		key, ok := getKey(in.SKI)
-		if !ok {
-			err = ErrorKeyNotFound
+		var key crypto.Signer
+		if key, err = getKey(in.SKI); err != nil {
 			return
 		}
 
@@ -248,9 +247,8 @@ func processRequest(in Operation, getCert GetCertificate, getKey GetKey) (out Op
 		return
 	}
 
-	key, ok := getKey(in.SKI)
-	if !ok {
-		err = ErrorKeyNotFound
+	var key crypto.Signer
+	if key, err = getKey(in.SKI); err != nil {
 		return
 	}
 

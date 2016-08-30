@@ -285,9 +285,9 @@ func signing(tb testing.TB) {
 					ski = SKI{0x00, 0x82, 0x62, 0x7c, 0x92, 0xe8, 0xc4, 0x6c, 0x8c, 0x05, 0x71, 0x3f, 0x0a, 0x70, 0xeb, 0x2e, 0x09, 0xf9, 0x63, 0xc1}
 				}
 
-				priv, ok := keys.GetKey(ski)
-				if !ok {
-					tb.Fatal("can't find key")
+				priv, err := keys.GetKey(ski)
+				if err != nil {
+					tb.Fatal(err)
 				}
 
 				tb.(*testing.T).Run(name, func(tt *testing.T) {
