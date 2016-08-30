@@ -300,9 +300,9 @@ func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, e
 			(sigAlg == x509.SHA256WithRSA && !hasSHA256RSA) ||
 			(sigAlg == x509.SHA384WithRSA && !hasSHA384RSA) ||
 			(sigAlg == x509.SHA512WithRSA && !hasSHA512RSA) ||
-			(sigAlg == x509.ECDSAWithSHA512 && !hasSHA256ECDSA) ||
+			(sigAlg == x509.ECDSAWithSHA256 && !hasSHA256ECDSA) ||
 			(sigAlg == x509.ECDSAWithSHA384 && !hasSHA384ECDSA) ||
-			(sigAlg == x509.ECDSAWithSHA256 && !hasSHA512ECDSA)) {
+			(sigAlg == x509.ECDSAWithSHA512 && !hasSHA512ECDSA)) {
 			out, outSKI, err = cert.payload, ski, nil
 			break
 		}
