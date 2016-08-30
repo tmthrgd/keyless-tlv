@@ -210,14 +210,6 @@ func (certs *certLoader) LoadFromDir(dir string) error {
 	return filepath.Walk(dir, certs.walker)
 }
 
-type gcTag byte
-
-const (
-	tagSignatureAlgorithms gcTag = iota + 1
-	tagSupportedGroups
-	tagECDSACipher
-)
-
 const (
 	// Signature Algorithms for TLS 1.3 (See draft-ietf-tls-tls13-latest, section 4.2.2)
 	sslRSASHA1   = 0x0201
