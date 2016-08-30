@@ -233,10 +233,11 @@ func processRequest(in Operation, getCert GetCertificate, getKey GetKey) (out Op
 		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA384}
 	case OpRSAPSSSignSHA512:
 		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA512}
-	//case gokeyless.OpActivate:
 	case OpPong, OpResponse, OpError:
 		err = WrappedError{ErrorUnexpectedOpcode, errors.New(in.Opcode.String())}
 		return
+	case OpActivate:
+		fallthrough
 	default:
 		err = WrappedError{ErrorBadOpcode, errors.New(in.Opcode.String())}
 		return
