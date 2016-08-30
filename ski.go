@@ -12,6 +12,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha1"
 	"encoding/asn1"
+	"encoding/hex"
 	"errors"
 	"math/big"
 )
@@ -46,6 +47,10 @@ func GetSKI(pub crypto.PublicKey) (ski SKI, err error) {
 
 	ski = sha1.Sum(publicKeyBytes)
 	return
+}
+
+func (ski SKI) String() string {
+	return hex.EncodeToString(ski[:])
 }
 
 func (ski SKI) Valid() bool {
