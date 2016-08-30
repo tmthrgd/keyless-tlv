@@ -144,6 +144,25 @@ func (certs *certLoader) walker(path string, info os.FileInfo, err error) error 
 		return errors.New("invalid file")
 	}
 
+	validCurve := true
+	pub, _ := x509s[0].PublicKey.(*ecdsa.PublicKey)
+	switch x509s[0].SignatureAlgorithm {
+	case x509.SHA1WithRSA, x509.SHA256WithRSA, x509.SHA384WithRSA, x509.SHA512WithRSA:
+	case x509.ECDSAWithSHA256:
+		validCurve = pub.Curve == elliptic.P256()
+	case x509.ECDSAWithSHA384:
+		validCurve = pub.Curve == elliptic.P384()
+	case x509.ECDSAWithSHA512:
+		validCurve = pub.Curve == elliptic.P521()
+	default:
+		return errors.New("unsupported certificate signature algorithm")
+	}
+
+	if !validCurve {
+		return fmt.Errorf("unsupported elliptic curve '%s' for certificate signature algorithm '%s'",
+			pub.Params().Name, x509s[0].SignatureAlgorithm)
+	}
+
 	ski, err := GetSKI(x509s[0].PublicKey)
 	if err != nil {
 		return err
