@@ -9,7 +9,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -195,15 +194,22 @@ const (
 )
 
 const (
-	// Hash functions for TLS 1.2 (See RFC 5246, section A.4.1)
-	sslHashSHA1   = 2
-	sslHashSHA256 = 4
-	sslHashSHA384 = 5
-	sslHashSHA512 = 6
+	// Signature Algorithms for TLS 1.3 (See draft-ietf-tls-tls13-latest, section 4.2.2)
+	sslRSASHA1   = 0x0201
+	sslRSASHA256 = 0x0401
+	sslRSASHA384 = 0x0501
+	sslRSASHA512 = 0x0601
 
-	// Signature algorithms for TLS 1.2 (See RFC 5246, section A.4.1)
-	sslSignatureRSA   = 1
-	sslSignatureECDSA = 3
+	sslECDSASHA256 = 0x0403
+	sslECDSASHA384 = 0x0503
+	sslECDSASHA512 = 0x0603
+
+	sslRSAPSSSHA256 = 0x0700
+	sslRSAPSSSHA384 = 0x0701
+	sslRSAPSSSHA512 = 0x0702
+
+	sslED25519 = 0x0703
+	sslED448   = 0x0704
 )
 
 func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, err error) {
@@ -259,50 +265,45 @@ func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, e
 		}
 		seen[gcTag(tag)] = struct{}{}
 
-		var offset int64
-		if offset, err = r.Seek(int64(length), io.SeekCurrent); err != nil {
-			err = WrappedError{ErrorInternal, err}
-			return
-		}
-
-		data := op.Payload[offset-int64(length) : offset]
-
 		switch gcTag(tag) {
 		case tagSignatureAlgorithms:
-			if len(data)%2 != 0 {
-				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be even number of bytes, was %d bytes", tagSignatureAlgorithms, len(data))}
+			if length%2 != 0 {
+				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be even number of bytes, was %d bytes", tagSignatureAlgorithms, length)}
 				return
 			}
 
-			for j := 0; j < len(data); j += 2 {
-				hash := data[j+0]
-				sign := data[j+1]
+			for j := 0; j < int(length); j += 2 {
+				var scheme uint16
+				binary.Read(r, binary.BigEndian, &scheme)
 
-				switch (uint16(sign) << 8) | uint16(hash) {
-				case (sslSignatureRSA << 8) | sslHashSHA1:
+				switch scheme {
+				case sslRSASHA1:
 					hasSHA1RSA = true
-				case (sslSignatureRSA << 8) | sslHashSHA256:
+				case sslRSASHA256:
 					hasSHA256RSA = true
-				case (sslSignatureRSA << 8) | sslHashSHA384:
+				case sslRSASHA384:
 					hasSHA384RSA = true
-				case (sslSignatureRSA << 8) | sslHashSHA512:
+				case sslRSASHA512:
 					hasSHA512RSA = true
-				case (sslSignatureECDSA << 8) | sslHashSHA256:
+				case sslECDSASHA256:
 					hasSHA256ECDSA = true
-				case (sslSignatureECDSA << 8) | sslHashSHA384:
+				case sslECDSASHA384:
 					hasSHA384ECDSA = true
-				case (sslSignatureECDSA << 8) | sslHashSHA512:
+				case sslECDSASHA512:
 					hasSHA512ECDSA = true
 				}
 			}
 		case tagSupportedGroups:
-			if len(data)%2 != 0 {
-				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be even number of bytes, was %d bytes", tagSupportedGroups, len(data))}
+			if length%2 != 0 {
+				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be even number of bytes, was %d bytes", tagSupportedGroups, length)}
 				return
 			}
 
-			for j := 0; j < len(data); j += 2 {
-				switch tls.CurveID(binary.BigEndian.Uint16(data[j:])) {
+			for j := 0; j < int(length); j += 2 {
+				var curve uint16
+				binary.Read(r, binary.BigEndian, &curve)
+
+				switch tls.CurveID(curve) {
 				case tls.CurveP256:
 					hasSECP256R1 = true
 				case tls.CurveP384:
@@ -312,12 +313,13 @@ func (certs *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, e
 				}
 			}
 		case tagECDSACipher:
-			if len(data) != 1 {
-				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", tagECDSACipher, len(data))}
+			if length != 1 {
+				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", tagECDSACipher, length)}
 				return
 			}
 
-			hasECDSA = data[0] != 0
+			data, _ := r.ReadByte()
+			hasECDSA = data != 0
 		default:
 			err = WrappedError{ErrorFormat, fmt.Errorf("unknown tag: %s", gcTag(tag))}
 			return
