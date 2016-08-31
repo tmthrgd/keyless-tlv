@@ -427,6 +427,7 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 	}
 
 	b := bytes.NewBuffer(in[:0])
+	b.Grow(1024 + 3)
 
 	b.WriteByte(VersionMajor)
 	b.WriteByte(VersionMinor)
