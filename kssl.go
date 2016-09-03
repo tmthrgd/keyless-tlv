@@ -369,9 +369,6 @@ func unmarshalReqiest(in []byte, r *bytes.Reader) (op Operation, err error) {
 			}
 
 			op.HasECDSACipher = data[0]&0x01 != 0
-		default:
-			err = WrappedError{ErrorFormat, fmt.Errorf("unknown tag: %s", Tag(tag))}
-			return
 		}
 	}
 
