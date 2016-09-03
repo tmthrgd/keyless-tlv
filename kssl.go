@@ -273,7 +273,7 @@ func processRequest(in Operation, getCert GetCertificate, getKey GetKey) (out Op
 	return
 }
 
-func unmarshalReqiest(in []byte, r *bytes.Reader) (op Operation, err error) {
+func unmarshalRequest(in []byte, r *bytes.Reader) (op Operation, err error) {
 	seen := make(map[Tag]struct{})
 
 	for r.Len() != 0 {
@@ -415,7 +415,7 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 		err = ErrorVersionMismatch
 	} else if int(length) != r.Len() {
 		err = WrappedError{ErrorFormat, errors.New("invalid header length")}
-	} else if op, err = unmarshalReqiest(in, r); err == nil {
+	} else if op, err = unmarshalRequest(in, r); err == nil {
 		log.Printf("id: %d, %v", id, op)
 
 		op, err = processRequest(op, getCert, getKey)
