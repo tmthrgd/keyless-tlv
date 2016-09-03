@@ -8,6 +8,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -361,7 +362,16 @@ func unmarshalReqiest(in []byte, r *bytes.Reader) (op Operation, err error) {
 		case TagPayload:
 			op.Payload = data
 		case TagPadding:
-			// ignore; should this be checked to ensure it is zero?
+			var v byte
+
+			for i := 0; i < len(data); i++ {
+				v |= data[i]
+			}
+
+			if subtle.ConstantTimeByteEq(v, 0) == 0 {
+				err = WrappedError{ErrorFormat, errors.New("invalid padding")}
+				return
+			}
 		case TagECDSACipher:
 			if len(data) != 1 {
 				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", TagECDSACipher, len(data))}

@@ -1,0 +1,19 @@
+01 00       ; version
+00 0b       ; length
+00 00 00 2f ; id
+11          ; opcode tag
+00 01       ; length
+f1          ; ping
+20          ; padding
+00 04       ; length
+0d 15 ea 5e ; value
+---
+01 00       ; version
+00 08       ; length
+00 00 00 2f ; id
+11          ; opcode tag
+00 01       ; length
+ff          ; error
+12          ; payload tag
+00 01       ; length
+07          ; format
