@@ -374,7 +374,9 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey) (out []byte
 	if err != nil {
 		log.Printf("id: %d, %v", id, err)
 
-		op.Opcode = OpError
+		op = Operation{
+			Opcode: OpError,
+		}
 
 		errCode := ErrorInternal
 
