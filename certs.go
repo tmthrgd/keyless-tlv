@@ -199,7 +199,7 @@ func (c *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, err e
 
 	if !ok {
 		err = ErrorCertNotFound
-	} else if len(op.SigAlgs) != 0 {
+	} else if op.SigAlgs != nil {
 		if cert := certs.sha256ECDSA; hasSHA256ECDSA && cert != nil {
 			out, outSKI = cert.payload, cert.ski
 		} else if cert := certs.sha256RSA; hasSHA256RSA && cert != nil {
@@ -213,7 +213,7 @@ func (c *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, err e
 		} else {
 			err = ErrorCertNotFound
 		}
-	} else if cert := certs.sha256RSA; len(op.SNI) != 0 && cert != nil {
+	} else if cert := certs.sha256RSA; op.SNI != nil && cert != nil {
 		out, outSKI = cert.payload, cert.ski
 	} else if cert := certs.sha1RSA; cert != nil {
 		out, outSKI = cert.payload, cert.ski
