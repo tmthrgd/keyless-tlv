@@ -17,6 +17,8 @@ import (
 	humanize "github.com/dustin/go-humanize"
 )
 
+var usePadding bool = true
+
 //go:generate stringer -type=Tag,Op -output=kssl_string.go
 
 type GetCertificate func(op Operation) ([]byte, SKI, error)
@@ -167,6 +169,70 @@ func (op Operation) String() string {
 	return fmt.Sprintf("Opcode: %s, SKI: %02x, Client IP: %s, Server IP: %s, SNI: %s, SigAlgs: %02x, ECDSA: %t", op.Opcode, ski2, op.ClientIP, op.ServerIP, op.SNI, op.SigAlgs, op.HasECDSACipher)
 }
 
+func (op *Operation) Marshal(b *bytes.Buffer) {
+	// opcode tag
+	b.WriteByte(byte(TagOpcode))
+
+	if op.Opcode > 0xff {
+		binary.Write(b, binary.BigEndian, uint16(2))
+		binary.Write(b, binary.BigEndian, uint16(op.Opcode))
+	} else {
+		binary.Write(b, binary.BigEndian, uint16(1))
+		b.WriteByte(byte(op.Opcode))
+	}
+
+	if op.SKI.Valid() {
+		// ski tag
+		b.WriteByte(byte(TagSKI))
+		binary.Write(b, binary.BigEndian, uint16(len(op.SKI)))
+		b.Write(op.SKI[:])
+	}
+
+	if op.ClientIP != nil {
+		// client ip tag
+		b.WriteByte(byte(TagClientIP))
+		binary.Write(b, binary.BigEndian, uint16(len(op.ClientIP)))
+		b.Write(op.ClientIP)
+	}
+
+	if op.ServerIP != nil {
+		// server ip tag
+		b.WriteByte(byte(TagServerIP))
+		binary.Write(b, binary.BigEndian, uint16(len(op.ServerIP)))
+		b.Write(op.ServerIP)
+	}
+
+	if op.SNI != nil {
+		// sni tag
+		b.WriteByte(byte(TagSNI))
+		binary.Write(b, binary.BigEndian, uint16(len(op.SNI)))
+		b.Write(op.SNI)
+	}
+
+	if op.SigAlgs != nil {
+		// signature algorithms tag
+		b.WriteByte(byte(TagSigAlgs))
+		binary.Write(b, binary.BigEndian, uint16(len(op.SigAlgs)))
+		b.Write(op.SigAlgs)
+	}
+
+	if op.Payload != nil {
+		// payload tag
+		b.WriteByte(byte(TagPayload))
+		binary.Write(b, binary.BigEndian, uint16(len(op.Payload)))
+		b.Write(op.Payload)
+	}
+
+	if usePadding && b.Len() < PadTo {
+		toPad := PadTo - b.Len()
+
+		// padding tag
+		b.WriteByte(byte(TagPadding))
+		binary.Write(b, binary.BigEndian, uint16(toPad))
+		b.Write(padding[:toPad])
+	}
+}
+
 func (op *Operation) Unmarshal(in []byte) error {
 	*op = Operation{}
 
@@ -269,7 +335,7 @@ func (op *Operation) Unmarshal(in []byte) error {
 	return nil
 }
 
-func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding bool) (out []byte, err error) {
+func handleRequest(in []byte, getCert GetCertificate, getKey GetKey) (out []byte, err error) {
 	start := time.Now()
 
 	r := bytes.NewReader(in)
@@ -305,48 +371,11 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 		op, err = processRequest(op, getCert, getKey)
 	}
 
-	var opcode Op
-
 	if err != nil {
 		log.Printf("id: %d, %v", id, err)
 
-		opcode = OpError
-	} else if op.Opcode != 0 {
-		opcode = op.Opcode
-	} else {
-		opcode = OpResponse
-	}
+		op.Opcode = OpError
 
-	b := bytes.NewBuffer(in[:0])
-	b.Grow(1024 + 3)
-
-	b.WriteByte(VersionMajor)
-	b.WriteByte(VersionMinor)
-	binary.Write(b, binary.BigEndian, uint16(0)) // length placeholder
-	binary.Write(b, binary.BigEndian, id)
-
-	// opcode tag
-	b.WriteByte(byte(TagOpcode))
-
-	if opcode > 0xff {
-		binary.Write(b, binary.BigEndian, uint16(2))
-		binary.Write(b, binary.BigEndian, uint16(opcode))
-	} else {
-		binary.Write(b, binary.BigEndian, uint16(1))
-		b.WriteByte(byte(opcode))
-	}
-
-	if op.SKI.Valid() {
-		// ski tag
-		b.WriteByte(byte(TagSKI))
-		binary.Write(b, binary.BigEndian, uint16(len(op.SKI)))
-		b.Write(op.SKI[:])
-	}
-
-	// payload tag
-	b.WriteByte(byte(TagPayload))
-
-	if err != nil {
 		errCode := ErrorInternal
 
 		switch err := err.(type) {
@@ -357,24 +386,24 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 		}
 
 		if errCode > 0xff {
-			binary.Write(b, binary.BigEndian, uint16(2))
-			binary.Write(b, binary.BigEndian, uint16(errCode))
+			op.Payload = make([]byte, 2)
+			binary.BigEndian.PutUint16(op.Payload, uint16(errCode))
 		} else {
-			binary.Write(b, binary.BigEndian, uint16(1))
-			b.WriteByte(byte(errCode))
+			op.Payload = []byte{byte(errCode)}
 		}
-	} else {
-		binary.Write(b, binary.BigEndian, uint16(len(op.Payload)))
-		b.Write(op.Payload)
+	} else if op.Opcode == 0 {
+		op.Opcode = OpResponse
 	}
 
-	if usePadding && b.Len() < PadTo {
-		toPad := PadTo - b.Len()
+	b := bytes.NewBuffer(in[:0])
+	b.Grow(1024 + 3)
 
-		b.WriteByte(byte(TagPadding))
-		binary.Write(b, binary.BigEndian, uint16(toPad))
-		b.Write(padding[:toPad])
-	}
+	b.WriteByte(VersionMajor)
+	b.WriteByte(VersionMinor)
+	binary.Write(b, binary.BigEndian, uint16(0)) // length placeholder
+	binary.Write(b, binary.BigEndian, id)
+
+	op.Marshal(b)
 
 	out, err = b.Bytes(), nil
 	binary.BigEndian.PutUint16(out[2:], uint16(b.Len()-HeaderLength))

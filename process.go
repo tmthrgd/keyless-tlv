@@ -13,7 +13,14 @@ func processRequest(in Operation, getCert GetCertificate, getKey GetKey) (out Op
 
 	switch in.Opcode {
 	case OpPing:
-		out.Payload, out.Opcode = in.Payload, OpPong
+		out.Opcode = OpPong
+
+		if in.Payload == nil {
+			out.Payload = make([]byte, 0)
+		} else {
+			out.Payload = in.Payload
+		}
+
 		return
 	case OpGetCertificate:
 		if getCert == nil {

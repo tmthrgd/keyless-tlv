@@ -105,7 +105,7 @@ func main() {
 		}
 
 		go func(buf []byte, addr net.Addr) {
-			out, err := handleRequest(buf, certs.GetCertificate, keys.GetKey, padding)
+			out, err := handleRequest(buf, certs.GetCertificate, keys.GetKey)
 			if err != nil {
 				log.Printf("error: %v\n", err)
 			} else if _, err = conn.WriteTo(out, addr); err != nil {

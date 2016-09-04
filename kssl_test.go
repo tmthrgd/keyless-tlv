@@ -21,6 +21,10 @@ import (
 	"testing"
 )
 
+func init() {
+	usePadding = false
+}
+
 type loggerWriter struct {
 	testing.TB
 }
@@ -183,7 +187,7 @@ func runTestCase(t *testing.T, path string, getCert GetCertificate, getKey GetKe
 	t.Logf("-> %x", req)
 	t.Logf("<- %x", resp)
 
-	got, err := handleRequest(req, getCert, getKey, false)
+	got, err := handleRequest(req, getCert, getKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +208,7 @@ func runBenchmarkCase(b *testing.B, path string, getCert GetCertificate, getKey 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := handleRequest(append([]byte(nil), req...), getCert, getKey, false); err != nil {
+		if _, err := handleRequest(append([]byte(nil), req...), getCert, getKey); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -393,7 +397,7 @@ func runTestSigningCase(t *testing.T, idx byte, h crypto.Hash, ecdsaOrPSS bool, 
 	t.Logf("-> %x", req)
 	t.Logf("<- %02xxx%02xxx...", expected1, expected2)
 
-	got, err := handleRequest(req, getCert, getKey, false)
+	got, err := handleRequest(req, getCert, getKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +445,7 @@ func runBenchmarkSigningCase(b *testing.B, idx byte, h crypto.Hash, ecdsaOrPSS b
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := handleRequest(append([]byte(nil), req...), getCert, getKey, false); err != nil {
+		if _, err := handleRequest(append([]byte(nil), req...), getCert, getKey); err != nil {
 			b.Fatal(err)
 		}
 	}
