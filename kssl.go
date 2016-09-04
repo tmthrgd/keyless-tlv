@@ -169,67 +169,74 @@ func (op Operation) String() string {
 	return fmt.Sprintf("Opcode: %s, SKI: %02x, Client IP: %s, Server IP: %s, SNI: %s, SigAlgs: %02x, ECDSA: %t", op.Opcode, ski2, op.ClientIP, op.ServerIP, op.SNI, op.SigAlgs, op.HasECDSACipher)
 }
 
-func (op *Operation) Marshal(b *bytes.Buffer) {
+type Writer interface {
+	io.Writer
+	io.ByteWriter
+
+	Len() int
+}
+
+func (op *Operation) Marshal(w Writer) {
 	// opcode tag
-	b.WriteByte(byte(TagOpcode))
+	w.WriteByte(byte(TagOpcode))
 
 	if op.Opcode > 0xff {
-		binary.Write(b, binary.BigEndian, uint16(2))
-		binary.Write(b, binary.BigEndian, uint16(op.Opcode))
+		binary.Write(w, binary.BigEndian, uint16(2))
+		binary.Write(w, binary.BigEndian, uint16(op.Opcode))
 	} else {
-		binary.Write(b, binary.BigEndian, uint16(1))
-		b.WriteByte(byte(op.Opcode))
+		binary.Write(w, binary.BigEndian, uint16(1))
+		w.WriteByte(byte(op.Opcode))
 	}
 
 	if op.SKI.Valid() {
 		// ski tag
-		b.WriteByte(byte(TagSKI))
-		binary.Write(b, binary.BigEndian, uint16(len(op.SKI)))
-		b.Write(op.SKI[:])
+		w.WriteByte(byte(TagSKI))
+		binary.Write(w, binary.BigEndian, uint16(len(op.SKI)))
+		w.Write(op.SKI[:])
 	}
 
 	if op.ClientIP != nil {
 		// client ip tag
-		b.WriteByte(byte(TagClientIP))
-		binary.Write(b, binary.BigEndian, uint16(len(op.ClientIP)))
-		b.Write(op.ClientIP)
+		w.WriteByte(byte(TagClientIP))
+		binary.Write(w, binary.BigEndian, uint16(len(op.ClientIP)))
+		w.Write(op.ClientIP)
 	}
 
 	if op.ServerIP != nil {
 		// server ip tag
-		b.WriteByte(byte(TagServerIP))
-		binary.Write(b, binary.BigEndian, uint16(len(op.ServerIP)))
-		b.Write(op.ServerIP)
+		w.WriteByte(byte(TagServerIP))
+		binary.Write(w, binary.BigEndian, uint16(len(op.ServerIP)))
+		w.Write(op.ServerIP)
 	}
 
 	if op.SNI != nil {
 		// sni tag
-		b.WriteByte(byte(TagSNI))
-		binary.Write(b, binary.BigEndian, uint16(len(op.SNI)))
-		b.Write(op.SNI)
+		w.WriteByte(byte(TagSNI))
+		binary.Write(w, binary.BigEndian, uint16(len(op.SNI)))
+		w.Write(op.SNI)
 	}
 
 	if op.SigAlgs != nil {
 		// signature algorithms tag
-		b.WriteByte(byte(TagSigAlgs))
-		binary.Write(b, binary.BigEndian, uint16(len(op.SigAlgs)))
-		b.Write(op.SigAlgs)
+		w.WriteByte(byte(TagSigAlgs))
+		binary.Write(w, binary.BigEndian, uint16(len(op.SigAlgs)))
+		w.Write(op.SigAlgs)
 	}
 
 	if op.Payload != nil {
 		// payload tag
-		b.WriteByte(byte(TagPayload))
-		binary.Write(b, binary.BigEndian, uint16(len(op.Payload)))
-		b.Write(op.Payload)
+		w.WriteByte(byte(TagPayload))
+		binary.Write(w, binary.BigEndian, uint16(len(op.Payload)))
+		w.Write(op.Payload)
 	}
 
-	if usePadding && b.Len() < PadTo {
-		toPad := PadTo - b.Len()
+	if usePadding && w.Len() < PadTo {
+		toPad := PadTo - w.Len()
 
 		// padding tag
-		b.WriteByte(byte(TagPadding))
-		binary.Write(b, binary.BigEndian, uint16(toPad))
-		b.Write(padding[:toPad])
+		w.WriteByte(byte(TagPadding))
+		binary.Write(w, binary.BigEndian, uint16(toPad))
+		w.Write(padding[:toPad])
 	}
 }
 
