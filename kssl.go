@@ -3,9 +3,6 @@ package main
 import (
 	"bytes"
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -170,140 +167,36 @@ func (op Operation) String() string {
 	return fmt.Sprintf("Opcode: %s, SKI: %02x, Client IP: %s, Server IP: %s, SNI: %s, SigAlgs: %02x, ECDSA: %t", op.Opcode, ski2, op.ClientIP, op.ServerIP, op.SNI, op.SigAlgs, op.HasECDSACipher)
 }
 
-func processRequest(in Operation, getCert GetCertificate, getKey GetKey) (out Operation, err error) {
-	var opts crypto.SignerOpts
+func (op *Operation) Unmarshal(in []byte) error {
+	*op = Operation{}
 
-	switch in.Opcode {
-	case OpPing:
-		out.Payload, out.Opcode = in.Payload, OpPong
-		return
-	case OpGetCertificate:
-		if getCert == nil {
-			err = ErrorCertNotFound
-			return
-		}
+	r := bytes.NewReader(in)
 
-		out.Payload, out.SKI, err = getCert(in)
-		return
-	case OpRSADecrypt, OpRSADecryptRaw:
-		if getKey == nil {
-			err = ErrorKeyNotFound
-			return
-		}
-
-		var key crypto.Signer
-		if key, err = getKey(in.SKI); err != nil {
-			return
-		}
-
-		rsaKey, ok := key.(*rsa.PrivateKey)
-		if !ok {
-			err = WrappedError{ErrorCryptoFailed, errors.New("request is RSA, but key is not")}
-			return
-		}
-
-		if in.Opcode == OpRSADecryptRaw {
-			out.Payload, err = rsaRawDecrypt(rand.Reader, rsaKey, in.Payload)
-		} else {
-			out.Payload, err = rsaKey.Decrypt(rand.Reader, in.Payload, nil)
-		}
-
-		if err != nil {
-			err = WrappedError{ErrorCryptoFailed, err}
-		}
-
-		return
-	case OpRSASignMD5SHA1, OpECDSASignMD5SHA1:
-		opts = crypto.MD5SHA1
-	case OpRSASignSHA1, OpECDSASignSHA1:
-		opts = crypto.SHA1
-	case OpRSASignSHA224, OpECDSASignSHA224:
-		opts = crypto.SHA224
-	case OpRSASignSHA256, OpECDSASignSHA256:
-		opts = crypto.SHA256
-	case OpRSASignSHA384, OpECDSASignSHA384:
-		opts = crypto.SHA384
-	case OpRSASignSHA512, OpECDSASignSHA512:
-		opts = crypto.SHA512
-	case OpRSAPSSSignSHA256:
-		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA256}
-	case OpRSAPSSSignSHA384:
-		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA384}
-	case OpRSAPSSSignSHA512:
-		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA512}
-	case OpPong, OpResponse, OpError:
-		err = WrappedError{ErrorUnexpectedOpcode, errors.New(in.Opcode.String())}
-		return
-	case OpActivate:
-		fallthrough
-	default:
-		err = WrappedError{ErrorBadOpcode, errors.New(in.Opcode.String())}
-		return
-	}
-
-	if getKey == nil {
-		err = ErrorKeyNotFound
-		return
-	}
-
-	var key crypto.Signer
-	if key, err = getKey(in.SKI); err != nil {
-		return
-	}
-
-	// Ensure we don't perform an ECDSA/RSA sign for an RSA/ECDSA request.
-	switch in.Opcode {
-	case OpRSASignMD5SHA1, OpRSASignSHA1, OpRSASignSHA224, OpRSASignSHA256, OpRSASignSHA384, OpRSASignSHA512,
-		OpRSAPSSSignSHA256, OpRSAPSSSignSHA384, OpRSAPSSSignSHA512:
-		if _, ok := key.Public().(*rsa.PublicKey); !ok {
-			err = WrappedError{ErrorCryptoFailed, errors.New("request is RSA, but key is not")}
-			return
-		}
-	case OpECDSASignMD5SHA1, OpECDSASignSHA1, OpECDSASignSHA224, OpECDSASignSHA256, OpECDSASignSHA384, OpECDSASignSHA512:
-		if _, ok := key.Public().(*ecdsa.PublicKey); !ok {
-			err = WrappedError{ErrorCryptoFailed, errors.New("request is ECDSA, but key is not")}
-			return
-		}
-	}
-
-	if out.Payload, err = key.Sign(rand.Reader, in.Payload, opts); err != nil {
-		err = WrappedError{ErrorCryptoFailed, err}
-	}
-
-	return
-}
-
-func unmarshalRequest(in []byte, r *bytes.Reader) (op Operation, err error) {
 	seen := make(map[Tag]struct{})
 
 	for r.Len() != 0 {
-		var tag byte
-		if tag, err = r.ReadByte(); err != nil {
-			err = WrappedError{ErrorFormat, err}
-			return
+		tag, err := r.ReadByte()
+		if err != nil {
+			return WrappedError{ErrorFormat, err}
 		}
 
 		var length uint16
 		if err = binary.Read(r, binary.BigEndian, &length); err != nil {
-			err = WrappedError{ErrorFormat, err}
-			return
+			return WrappedError{ErrorFormat, err}
 		}
 
 		if int(length) > r.Len() {
-			err = WrappedError{ErrorFormat, fmt.Errorf("%s length is %dB beyond end of body", Tag(tag), int(length)-r.Len())}
-			return
+			return WrappedError{ErrorFormat, fmt.Errorf("%s length is %dB beyond end of body", Tag(tag), int(length)-r.Len())}
 		}
 
 		if _, saw := seen[Tag(tag)]; saw {
-			err = WrappedError{ErrorFormat, fmt.Errorf("tag %s seen multiple times", Tag(tag))}
-			return
+			return WrappedError{ErrorFormat, fmt.Errorf("tag %s seen multiple times", Tag(tag))}
 		}
 		seen[Tag(tag)] = struct{}{}
 
-		var offset int64
-		if offset, err = r.Seek(int64(length), io.SeekCurrent); err != nil {
-			err = WrappedError{ErrorInternal, err}
-			return
+		offset, err := r.Seek(int64(length), io.SeekCurrent)
+		if err != nil {
+			return WrappedError{ErrorInternal, err}
 		}
 
 		data := in[offset-int64(length) : offset]
@@ -311,36 +204,31 @@ func unmarshalRequest(in []byte, r *bytes.Reader) (op Operation, err error) {
 		switch Tag(tag) {
 		case TagDigest:
 			if len(data) != sha256.Size {
-				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 32 bytes, was %d bytes", TagDigest, len(data))}
-				return
+				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 32 bytes, was %d bytes", TagDigest, len(data))}
 			}
 		case TagSNI:
 			op.SNI = data
 		case TagClientIP:
 			if len(data) != net.IPv4len && len(data) != net.IPv6len {
-				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 4 or 16 bytes, was %d bytes", TagClientIP, len(data))}
-				return
+				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 4 or 16 bytes, was %d bytes", TagClientIP, len(data))}
 			}
 
 			op.ClientIP = data
 		case TagSKI:
 			if len(data) != sha1.Size {
-				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 20 bytes, was %d bytes", TagSKI, len(data))}
-				return
+				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 20 bytes, was %d bytes", TagSKI, len(data))}
 			}
 
 			copy(op.SKI[:], data)
 		case TagServerIP:
 			if len(data) != net.IPv4len && len(data) != net.IPv6len {
-				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 4 or 16 bytes, was %d bytes", TagServerIP, len(data))}
-				return
+				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 4 or 16 bytes, was %d bytes", TagServerIP, len(data))}
 			}
 
 			op.ServerIP = data
 		case TagSigAlgs:
 			if len(data)%2 != 0 {
-				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be even number of bytes, was %d bytes", TagSigAlgs, len(data))}
-				return
+				return WrappedError{ErrorFormat, fmt.Errorf("%s should be even number of bytes, was %d bytes", TagSigAlgs, len(data))}
 			}
 
 			op.SigAlgs = data
@@ -352,12 +240,10 @@ func unmarshalRequest(in []byte, r *bytes.Reader) (op Operation, err error) {
 				op.Opcode = Op(binary.BigEndian.Uint16(data))
 
 				if op.Opcode < 0x100 {
-					err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 bytes for opcodes in [0x00, 0xff], was 2 bytes", TagOpcode)}
-					return
+					return WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 bytes for opcodes in [0x00, 0xff], was 2 bytes", TagOpcode)}
 				}
 			default:
-				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 or 2 bytes, was %d bytes", TagOpcode, len(data))}
-				return
+				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 or 2 bytes, was %d bytes", TagOpcode, len(data))}
 			}
 		case TagPayload:
 			op.Payload = data
@@ -369,20 +255,18 @@ func unmarshalRequest(in []byte, r *bytes.Reader) (op Operation, err error) {
 			}
 
 			if subtle.ConstantTimeByteEq(v, 0) == 0 {
-				err = WrappedError{ErrorFormat, errors.New("invalid padding")}
-				return
+				return WrappedError{ErrorFormat, errors.New("invalid padding")}
 			}
 		case TagECDSACipher:
 			if len(data) != 1 {
-				err = WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", TagECDSACipher, len(data))}
-				return
+				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", TagECDSACipher, len(data))}
 			}
 
 			op.HasECDSACipher = data[0]&0x01 != 0
 		}
 	}
 
-	return
+	return nil
 }
 
 func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding bool) (out []byte, err error) {
@@ -415,7 +299,7 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey, usePadding 
 		err = ErrorVersionMismatch
 	} else if int(length) != r.Len() {
 		err = WrappedError{ErrorFormat, errors.New("invalid header length")}
-	} else if op, err = unmarshalRequest(in, r); err == nil {
+	} else if err = op.Unmarshal(in[HeaderLength:]); err == nil {
 		log.Printf("id: %d, %v", id, op)
 
 		op, err = processRequest(op, getCert, getKey)
