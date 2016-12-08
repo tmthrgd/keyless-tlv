@@ -211,16 +211,18 @@ func (c *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, err e
 		} else {
 			err = ErrorCertNotFound
 		}
-	} else if cert := certs.sha256RSA; op.SNI != nil && cert != nil {
-		out, outSKI = cert.payload, cert.ski
-	} else if cert := certs.sha1RSA; cert != nil {
-		out, outSKI = cert.payload, cert.ski
-	} else if cert := certs.sha256RSA; cert != nil {
-		out, outSKI = cert.payload, cert.ski
-	} else if cert := certs.sha256ECDSA; cert != nil {
-		out, outSKI = cert.payload, cert.ski
 	} else {
-		err = ErrorCertNotFound
+		if cert := certs.sha256RSA; op.SNI != nil && cert != nil {
+			out, outSKI = cert.payload, cert.ski
+		} else if cert := certs.sha1RSA; cert != nil {
+			out, outSKI = cert.payload, cert.ski
+		} else if cert := certs.sha256RSA; cert != nil {
+			out, outSKI = cert.payload, cert.ski
+		} else if cert := certs.sha256ECDSA; cert != nil {
+			out, outSKI = cert.payload, cert.ski
+		} else {
+			err = ErrorCertNotFound
+		}
 	}
 
 	c.RUnlock()
