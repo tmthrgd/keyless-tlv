@@ -188,8 +188,6 @@ func (c *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, err e
 		}
 	}
 
-	hasSHA256ECDSA = hasSHA256ECDSA && op.HasECDSACipher
-
 	c.RLock()
 
 	certs, ok := c.snis[string(op.SNI)]
@@ -200,7 +198,7 @@ func (c *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, err e
 	if !ok {
 		err = ErrorCertNotFound
 	} else if op.SigAlgs != nil {
-		if cert := certs.sha256ECDSA; hasSHA256ECDSA && cert != nil {
+		if cert := certs.sha256ECDSA; hasSHA256ECDSA && op.HasECDSACipher && cert != nil {
 			out, outSKI = cert.payload, cert.ski
 		} else if cert := certs.sha256RSA; hasSHA256RSA && cert != nil {
 			out, outSKI = cert.payload, cert.ski
