@@ -160,7 +160,7 @@ type Operation struct {
 	HasECDSACipher bool
 }
 
-func (op Operation) String() string {
+func (op *Operation) String() string {
 	var ski2 []byte
 	if op.SKI.Valid() {
 		ski2 = op.SKI[:]
@@ -373,7 +373,7 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey) (out []byte
 	} else if int(length) != r.Len() {
 		err = WrappedError{ErrorFormat, errors.New("invalid header length")}
 	} else if err = op.Unmarshal(in[HeaderLength:]); err == nil {
-		log.Printf("id: %d, %v", id, op)
+		log.Printf("id: %d, %v", id, &op)
 
 		op, err = processRequest(op, getCert, getKey)
 	}
