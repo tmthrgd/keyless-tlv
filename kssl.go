@@ -21,7 +21,7 @@ var usePadding bool = true
 
 //go:generate stringer -type=Tag,Op -output=kssl_string.go
 
-type GetCertificate func(op Operation) ([]byte, SKI, error)
+type GetCertificate func(op *Operation) ([]byte, SKI, error)
 type GetKey func(ski SKI) (crypto.Signer, error)
 
 const (
@@ -366,14 +366,14 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey) (out []byte
 		return nil, err
 	}
 
-	var op Operation
+	op := new(Operation)
 
 	if major != VersionMajor {
 		err = ErrorVersionMismatch
 	} else if int(length) != r.Len() {
 		err = WrappedError{ErrorFormat, errors.New("invalid header length")}
 	} else if err = op.Unmarshal(in[HeaderLength:]); err == nil {
-		log.Printf("id: %d, %v", id, &op)
+               log.Printf("id: %d, %v", id, op)
 
 		op, err = processRequest(op, getCert, getKey)
 	}
@@ -381,7 +381,7 @@ func handleRequest(in []byte, getCert GetCertificate, getKey GetKey) (out []byte
 	if err != nil {
 		log.Printf("id: %d, %v", id, err)
 
-		op = Operation{
+		*op = Operation{
 			Opcode: OpError,
 		}
 

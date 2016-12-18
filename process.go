@@ -8,7 +8,9 @@ import (
 	"errors"
 )
 
-func processRequest(in Operation, getCert GetCertificate, getKey GetKey) (out Operation, err error) {
+func processRequest(in *Operation, getCert GetCertificate, getKey GetKey) (out *Operation, err error) {
+	out = new(Operation)
+
 	var opts crypto.SignerOpts
 
 	switch in.Opcode {

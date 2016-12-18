@@ -152,7 +152,7 @@ const (
 	sslED448   = 0x0808
 )
 
-func (c *certLoader) GetCertificate(op Operation) (out []byte, outSKI SKI, err error) {
+func (c *certLoader) GetCertificate(op *Operation) (out []byte, outSKI SKI, err error) {
 	if op.SKI.Valid() {
 		c.RLock()
 
