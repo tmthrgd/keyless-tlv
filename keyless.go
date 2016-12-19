@@ -34,9 +34,6 @@ func main() {
 	var pid string
 	flag.StringVar(&pid, "pid", "/run/keyless.pid", "the file to write the pid out to")
 
-	var padding bool
-	flag.BoolVar(&padding, "padding", true, "use padding for responses")
-
 	flag.Parse()
 
 	var conn net.PacketConn
