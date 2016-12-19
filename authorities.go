@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"crypto/sha256"
 	"encoding/base64"
-	"golang.org/x/crypto/ed25519"
 	"os"
 	"sync"
+
+	"golang.org/x/crypto/ed25519"
 )
 
 type Authorities struct {

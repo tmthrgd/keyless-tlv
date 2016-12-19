@@ -6,11 +6,12 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"golang.org/x/crypto/ed25519"
 	"io/ioutil"
 	"log"
 	"sync"
 	"time"
+
+	"golang.org/x/crypto/ed25519"
 
 	humanize "github.com/dustin/go-humanize"
 )
