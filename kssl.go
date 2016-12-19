@@ -387,23 +387,23 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 
 	r := bytes.NewReader(in)
 
-	major, err := r.ReadByte()
-	if err != nil {
-		return nil, err
+	var major byte
+	if major, err = r.ReadByte(); err != nil {
+		return
 	}
 
-	if _, err := r.ReadByte(); err != nil {
-		return nil, err
+	if _, err = r.ReadByte(); err != nil {
+		return
 	}
 
 	var length uint16
-	if err := binary.Read(r, binary.BigEndian, &length); err != nil {
-		return nil, err
+	if err = binary.Read(r, binary.BigEndian, &length); err != nil {
+		return
 	}
 
 	var id uint32
-	if err := binary.Read(r, binary.BigEndian, &id); err != nil {
-		return nil, err
+	if err = binary.Read(r, binary.BigEndian, &id); err != nil {
+		return
 	}
 
 	var remAuthID [8]byte
@@ -411,20 +411,20 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	var remPublic [ed25519.PublicKeySize]byte
 
 	if !h.V1 {
-		if _, err := r.Read(remAuthID[:]); err != nil {
-			return nil, err
+		if _, err = r.Read(remAuthID[:]); err != nil {
+			return
 		}
 
-		if _, err := r.Read(remAuthSig[:]); err != nil {
-			return nil, err
+		if _, err = r.Read(remAuthSig[:]); err != nil {
+			return
 		}
 
-		if _, err := r.Read(remPublic[:]); err != nil {
-			return nil, err
+		if _, err = r.Read(remPublic[:]); err != nil {
+			return
 		}
 
-		if _, err := r.Read(remSig[:]); err != nil {
-			return nil, err
+		if _, err = r.Read(remSig[:]); err != nil {
+			return
 		}
 	}
 
