@@ -12,7 +12,11 @@ import (
 	"net"
 )
 
-var padding [PadTo]byte
+var (
+	padding [PadTo]byte
+
+	usePadding bool = true
+)
 
 type Operation struct {
 	Opcode             Op

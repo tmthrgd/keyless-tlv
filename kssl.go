@@ -16,8 +16,6 @@ import (
 	humanize "github.com/dustin/go-humanize"
 )
 
-var usePadding bool = true
-
 type GetCertificate func(op *Operation) ([]byte, SKI, error)
 type GetKey func(ski SKI) (crypto.Signer, error)
 
