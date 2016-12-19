@@ -12,6 +12,8 @@ import (
 	"net"
 )
 
+const PadTo = 1024
+
 var (
 	padding [PadTo]byte
 

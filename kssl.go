@@ -28,8 +28,6 @@ const (
 
 	HeaderLength2 = 8 + 8 + ed25519.SignatureSize + ed25519.PublicKeySize + ed25519.SignatureSize
 	HeaderLength1 = 8
-
-	PadTo = 1024
 )
 
 var nilSig [ed25519.SignatureSize]byte
