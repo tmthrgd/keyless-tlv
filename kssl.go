@@ -15,9 +15,6 @@ import (
 	humanize "github.com/dustin/go-humanize"
 )
 
-type GetCertificate func(op *Operation) ([]byte, SKI, error)
-type GetKey func(ski SKI) (crypto.Signer, error)
-
 const (
 	Version2Major = 2
 	Version2Minor = 0
@@ -34,8 +31,8 @@ var nilSig [ed25519.SignatureSize]byte
 type RequestHandler struct {
 	sync.RWMutex
 
-	GetCert GetCertificate
-	GetKey  GetKey
+	GetCert func(op *Operation) (out []byte, ski SKI, err error)
+	GetKey  func(ski SKI) (priv crypto.Signer, err error)
 
 	PublicKey  publicKey
 	PrivateKey ed25519.PrivateKey
