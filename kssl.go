@@ -6,7 +6,6 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -362,7 +361,7 @@ type RequestHandler struct {
 	GetCert GetCertificate
 	GetKey  GetKey
 
-	PublicKey  ed25519.PublicKey
+	PublicKey  publicKey
 	PrivateKey ed25519.PrivateKey
 
 	Authority struct {
@@ -439,15 +438,13 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		ed25519.Verify(authority, remPublic[:], remAuthSig[:])) {
 		err = WrappedError{
 			Code: ErrorNotAuthorised,
-			Err: fmt.Errorf("%s not authorised",
-				base64.RawStdEncoding.EncodeToString(remPublic[:])),
+			Err:  fmt.Errorf("%s not authorised", publicKey(remPublic[:])),
 		}
 	} else if err = op.Unmarshal(in[headerLength:]); err == nil {
 		if h.V1 {
 			log.Printf("id: %d, %v", id, op)
 		} else {
-			log.Printf("id: %d, key: %s, %v", id,
-				base64.RawStdEncoding.EncodeToString(remPublic[:]), op)
+			log.Printf("id: %d, key: %s, %v", id, publicKey(remPublic[:]), op)
 		}
 
 		op, err = h.process(op)
@@ -525,7 +522,7 @@ func (h *RequestHandler) ReadKeyFile(path string) error {
 	h.Lock()
 
 	h.PrivateKey = keyfile[:ed25519.PrivateKeySize]
-	h.PublicKey = h.PrivateKey.Public().(ed25519.PublicKey)
+	h.PublicKey = publicKey(h.PrivateKey.Public().(ed25519.PublicKey))
 
 	h.Authority.ID = keyfile[ed25519.PrivateKeySize : ed25519.PrivateKeySize+8]
 	h.Authority.Signature = keyfile[ed25519.PrivateKeySize+8:]

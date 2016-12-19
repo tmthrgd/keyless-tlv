@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"flag"
 	"fmt"
 	"log"
@@ -114,13 +113,11 @@ func main() {
 				panic(err)
 			}
 
-			log.Printf("listening on %s with key %s\n", addr,
-				base64.RawStdEncoding.EncodeToString(handler.PublicKey))
+			log.Printf("listening on %s with key %s\n", addr, handler.PublicKey)
 		}
 	}()
 
-	log.Printf("listening on %s with key %s\n", addr,
-		base64.RawStdEncoding.EncodeToString(handler.PublicKey))
+	log.Printf("listening on %s with key %s\n", addr, handler.PublicKey)
 
 	for {
 		buf := bufferPool.Get().([]byte)
