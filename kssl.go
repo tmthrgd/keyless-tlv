@@ -377,9 +377,6 @@ type RequestHandler struct {
 func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	start := time.Now()
 
-	h.RLock()
-	defer h.RUnlock()
-
 	headerLength, versionMajor, versionMinor := HeaderLength2, byte(Version2Major), byte(Version2Minor)
 	if h.V1 {
 		headerLength, versionMajor, versionMinor = HeaderLength1, Version1Major, Version1Minor
@@ -427,6 +424,8 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 			return
 		}
 	}
+
+	h.RLock()
 
 	op := new(Operation)
 
@@ -504,6 +503,8 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		locSig := ed25519.Sign(h.PrivateKey, out[headerLength:])
 		copy(out[headerLength-ed25519.SignatureSize:headerLength], locSig)
 	}
+
+	h.RUnlock()
 
 	log.Printf("id: %d, elapsed: %s, request: %s, response: %s", id, time.Since(start),
 		humanize.IBytes(uint64(len(in))), humanize.IBytes(uint64(len(out))))
