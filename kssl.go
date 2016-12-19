@@ -34,7 +34,7 @@ type RequestHandler struct {
 	GetCert func(op *Operation) (out []byte, ski SKI, err error)
 	GetKey  func(ski SKI) (priv crypto.Signer, err error)
 
-	PublicKey  publicKey
+	PublicKey  PublicKey
 	PrivateKey ed25519.PrivateKey
 
 	Authority struct {
@@ -111,13 +111,13 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		ed25519.Verify(authority, remPublic[:], remAuthSig[:])) {
 		err = WrappedError{
 			Code: ErrorNotAuthorised,
-			Err:  fmt.Errorf("%s not authorised", publicKey(remPublic[:])),
+			Err:  fmt.Errorf("%s not authorised", PublicKey(remPublic[:])),
 		}
 	} else if err = op.Unmarshal(in[headerLength:]); err == nil {
 		if h.V1 {
 			log.Printf("id: %d, %v", id, op)
 		} else {
-			log.Printf("id: %d, key: %s, %v", id, publicKey(remPublic[:]), op)
+			log.Printf("id: %d, key: %s, %v", id, PublicKey(remPublic[:]), op)
 		}
 
 		op, err = h.process(op)

@@ -21,7 +21,7 @@ func (h *RequestHandler) ReadKeyFile(path string) error {
 	h.Lock()
 
 	h.PrivateKey = keyfile[:ed25519.PrivateKeySize]
-	h.PublicKey = publicKey(h.PrivateKey.Public().(ed25519.PublicKey))
+	h.PublicKey = PublicKey(h.PrivateKey.Public().(ed25519.PublicKey))
 
 	h.Authority.ID = keyfile[ed25519.PrivateKeySize : ed25519.PrivateKeySize+8]
 	h.Authority.Signature = keyfile[ed25519.PrivateKeySize+8:]

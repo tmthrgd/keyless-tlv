@@ -6,8 +6,8 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-type publicKey ed25519.PublicKey
+type PublicKey ed25519.PublicKey
 
-func (k publicKey) String() string {
+func (k PublicKey) String() string {
 	return base64.RawStdEncoding.EncodeToString(k)
 }
