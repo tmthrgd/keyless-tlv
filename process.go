@@ -8,7 +8,7 @@ import (
 	"errors"
 )
 
-func processRequest(in *Operation, getCert GetCertificate, getKey GetKey) (out *Operation, err error) {
+func (h *RequestHandler) process(in *Operation) (out *Operation, err error) {
 	out = new(Operation)
 
 	var opts crypto.SignerOpts
@@ -25,21 +25,21 @@ func processRequest(in *Operation, getCert GetCertificate, getKey GetKey) (out *
 
 		return
 	case OpGetCertificate:
-		if getCert == nil {
+		if h.GetCert == nil {
 			err = ErrorCertNotFound
 			return
 		}
 
-		out.Payload, out.SKI, err = getCert(in)
+		out.Payload, out.SKI, err = h.GetCert(in)
 		return
 	case OpRSADecrypt, OpRSADecryptRaw:
-		if getKey == nil {
+		if h.GetKey == nil {
 			err = ErrorKeyNotFound
 			return
 		}
 
 		var key crypto.Signer
-		if key, err = getKey(in.SKI); err != nil {
+		if key, err = h.GetKey(in.SKI); err != nil {
 			return
 		}
 
@@ -88,13 +88,13 @@ func processRequest(in *Operation, getCert GetCertificate, getKey GetKey) (out *
 		return
 	}
 
-	if getKey == nil {
+	if h.GetKey == nil {
 		err = ErrorKeyNotFound
 		return
 	}
 
 	var key crypto.Signer
-	if key, err = getKey(in.SKI); err != nil {
+	if key, err = h.GetKey(in.SKI); err != nil {
 		return
 	}
 

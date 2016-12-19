@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"log"
@@ -33,6 +34,12 @@ func main() {
 
 	var pid string
 	flag.StringVar(&pid, "pid", "/run/keyless.pid", "the file to write the pid out to")
+
+	var keyfilePath string
+	flag.StringVar(&keyfilePath, "keyfile", "/etc/keyless.key", "the file to read the ed25519 key from")
+
+	var authoritiesPath string
+	flag.StringVar(&authoritiesPath, "authorities", "/etc/keyless.auth", "the file to read authorities from")
 
 	flag.Parse()
 
@@ -71,6 +78,19 @@ func main() {
 		panic(err)
 	}
 
+	handler := &RequestHandler{
+		GetCert: certs.GetCertificate,
+		GetKey:  keys.GetKey,
+	}
+
+	if err := handler.ReadKeyFile(keyfilePath); err != nil {
+		panic(err)
+	}
+
+	if err := handler.Authorities.ReadFrom(authoritiesPath); err != nil {
+		panic(err)
+	}
+
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, syscall.SIGHUP)
@@ -85,10 +105,22 @@ func main() {
 			if err := certs.LoadFromDir(dir); err != nil {
 				panic(err)
 			}
+
+			if err := handler.ReadKeyFile(keyfilePath); err != nil {
+				panic(err)
+			}
+
+			if err := handler.Authorities.ReadFrom(authoritiesPath); err != nil {
+				panic(err)
+			}
+
+			log.Printf("listening on %s with key %s\n", addr,
+				base64.RawStdEncoding.EncodeToString(handler.PublicKey))
 		}
 	}()
 
-	log.Printf("listening on %s\n", addr)
+	log.Printf("listening on %s with key %s\n", addr,
+		base64.RawStdEncoding.EncodeToString(handler.PublicKey))
 
 	for {
 		buf := bufferPool.Get().([]byte)
@@ -102,7 +134,7 @@ func main() {
 		}
 
 		go func(buf []byte, addr net.Addr) {
-			out, err := handleRequest(buf, certs.GetCertificate, keys.GetKey)
+			out, err := handler.Handle(buf)
 			if err != nil {
 				log.Printf("error: %v\n", err)
 			} else if _, err = conn.WriteTo(out, addr); err != nil {

@@ -63,6 +63,13 @@ func runner(tb testing.TB) {
 		tb.Fatal(err)
 	}
 
+	handler := &RequestHandler{
+		GetCert: certs.GetCertificate,
+		GetKey:  keys.GetKey,
+
+		V1: true,
+	}
+
 	if err := filepath.Walk("./test-data/transcript", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -84,7 +91,7 @@ func runner(tb testing.TB) {
 					logger.TB = tb
 				}()
 
-				runBenchmarkCase(bb, path, certs.GetCertificate, keys.GetKey)
+				runBenchmarkCase(bb, path, handler)
 			})
 		} else {
 			tb.(*testing.T).Run(rel, func(tt *testing.T) {
@@ -93,7 +100,7 @@ func runner(tb testing.TB) {
 					logger.TB = tb
 				}()
 
-				runTestCase(tt, path, certs.GetCertificate, keys.GetKey)
+				runTestCase(tt, path, handler)
 			})
 		}
 
@@ -178,7 +185,7 @@ func parseTestCase(path string) (request, response []byte, err error) {
 	return req.Bytes(), resp.Bytes(), nil
 }
 
-func runTestCase(t *testing.T, path string, getCert GetCertificate, getKey GetKey) {
+func runTestCase(t *testing.T, path string, handler *RequestHandler) {
 	req, resp, err := parseTestCase(path)
 	if err != nil {
 		t.Fatal(err)
@@ -187,7 +194,7 @@ func runTestCase(t *testing.T, path string, getCert GetCertificate, getKey GetKe
 	t.Logf("-> %x", req)
 	t.Logf("<- %x", resp)
 
-	got, err := handleRequest(req, getCert, getKey)
+	got, err := handler.Handle(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +206,7 @@ func runTestCase(t *testing.T, path string, getCert GetCertificate, getKey GetKe
 	}
 }
 
-func runBenchmarkCase(b *testing.B, path string, getCert GetCertificate, getKey GetKey) {
+func runBenchmarkCase(b *testing.B, path string, handler *RequestHandler) {
 	req, _, err := parseTestCase(path)
 	if err != nil {
 		b.Fatal(err)
@@ -208,7 +215,7 @@ func runBenchmarkCase(b *testing.B, path string, getCert GetCertificate, getKey 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := handleRequest(append([]byte(nil), req...), getCert, getKey); err != nil {
+		if _, err := handler.Handle(append([]byte(nil), req...)); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -239,6 +246,13 @@ func signing(tb testing.TB) {
 
 	if err := certs.LoadFromDir("./test-data/certificate"); err != nil {
 		tb.Fatal(err)
+	}
+
+	handler := &RequestHandler{
+		GetCert: certs.GetCertificate,
+		GetKey:  keys.GetKey,
+
+		V1: true,
 	}
 
 	for j, idx := 0, 0; j <= 1; j++ {
@@ -278,7 +292,7 @@ func signing(tb testing.TB) {
 						logger.TB = tb
 					}()
 
-					runBenchmarkSigningCase(bb, byte(idx), h, j == 1, certs.GetCertificate, keys.GetKey)
+					runBenchmarkSigningCase(bb, byte(idx), h, j == 1, handler)
 				})
 			} else {
 				var ski SKI
@@ -300,7 +314,7 @@ func signing(tb testing.TB) {
 						logger.TB = tb
 					}()
 
-					runTestSigningCase(tt, byte(idx), h, j == 1, priv.Public(), certs.GetCertificate, keys.GetKey)
+					runTestSigningCase(tt, byte(idx), h, j == 1, priv.Public(), handler)
 				})
 			}
 
@@ -375,7 +389,7 @@ func generateSigningRequest(idx byte, h crypto.Hash, ecdsaOrPSS bool) ([]byte, [
 	}, nil), nil
 }
 
-func runTestSigningCase(t *testing.T, idx byte, h crypto.Hash, ecdsaOrPSS bool, pub crypto.PublicKey, getCert GetCertificate, getKey GetKey) {
+func runTestSigningCase(t *testing.T, idx byte, h crypto.Hash, ecdsaOrPSS bool, pub crypto.PublicKey, handler *RequestHandler) {
 	hash, req, err := generateSigningRequest(idx, h, ecdsaOrPSS)
 	if err != nil {
 		t.Fatal(err)
@@ -397,7 +411,7 @@ func runTestSigningCase(t *testing.T, idx byte, h crypto.Hash, ecdsaOrPSS bool, 
 	t.Logf("-> %x", req)
 	t.Logf("<- %02xxx%02xxx...", expected1, expected2)
 
-	got, err := handleRequest(req, getCert, getKey)
+	got, err := handler.Handle(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -436,7 +450,7 @@ func runTestSigningCase(t *testing.T, idx byte, h crypto.Hash, ecdsaOrPSS bool, 
 	}
 }
 
-func runBenchmarkSigningCase(b *testing.B, idx byte, h crypto.Hash, ecdsaOrPSS bool, getCert GetCertificate, getKey GetKey) {
+func runBenchmarkSigningCase(b *testing.B, idx byte, h crypto.Hash, ecdsaOrPSS bool, handler *RequestHandler) {
 	_, req, err := generateSigningRequest(idx, h, ecdsaOrPSS)
 	if err != nil {
 		b.Fatal(err)
@@ -445,7 +459,7 @@ func runBenchmarkSigningCase(b *testing.B, idx byte, h crypto.Hash, ecdsaOrPSS b
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := handleRequest(append([]byte(nil), req...), getCert, getKey); err != nil {
+		if _, err := handler.Handle(append([]byte(nil), req...)); err != nil {
 			b.Fatal(err)
 		}
 	}
