@@ -11,9 +11,28 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+const (
+	maxCacheSize = 1024
+	drainCacheTo = 768
+)
+
+type authCacheKey struct {
+	Authorisation string
+	PublicKey     string
+}
+
 type Authorities struct {
 	sync.RWMutex
 	m map[string]ed25519.PublicKey
+
+	cache map[authCacheKey]bool
+}
+
+func newAuthorities() *Authorities {
+	return &Authorities{
+		m:     make(map[string]ed25519.PublicKey),
+		cache: make(map[authCacheKey]bool),
+	}
 }
 
 func (a *Authorities) Add(publicKey ed25519.PublicKey) {
@@ -42,23 +61,49 @@ func (a *Authorities) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
 			TagAuthorisation, 8+ed25519.SignatureSize, len(op.Authorisation))}
 	}
 
-	a.RLock()
-	key, ok := a.m[string(op.Authorisation[:8])]
-	a.RUnlock()
-
-	if !ok || !ed25519.Verify(key, pub, op.Authorisation[8:]) {
-		return WrappedError{
-			Code: ErrorNotAuthorised,
-			Err:  fmt.Errorf("%s not authorised", PublicKey(pub)),
-		}
+	cacheKey := authCacheKey{
+		Authorisation: string(op.Authorisation),
+		PublicKey:     string(pub),
 	}
 
-	return nil
+	a.RLock()
+	key, hasKey := a.m[string(op.Authorisation[:8])]
+	ok, inCache := a.cache[cacheKey]
+	a.RUnlock()
+
+	if hasKey && !inCache {
+		ok = ed25519.Verify(key, pub, op.Authorisation[8:])
+
+		a.Lock()
+
+		if i := len(a.cache); i > maxCacheSize {
+			for k := range a.cache {
+				delete(a.cache, k)
+
+				if i--; i <= drainCacheTo {
+					break
+				}
+			}
+		}
+
+		a.cache[cacheKey] = ok
+		a.Unlock()
+	}
+
+	if hasKey && ok {
+		return nil
+	}
+
+	return WrappedError{
+		Code: ErrorNotAuthorised,
+		Err:  fmt.Errorf("%s not authorised", PublicKey(pub)),
+	}
 }
 
 func (a *Authorities) ReadFrom(path string) error {
 	a.Lock()
 	a.m = make(map[string]ed25519.PublicKey)
+	a.cache = make(map[authCacheKey]bool)
 	a.Unlock()
 
 	f, err := os.Open(path)

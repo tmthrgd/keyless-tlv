@@ -68,7 +68,7 @@ func main() {
 
 	keys := newKeyLoader()
 	certs := newCertLoader()
-	auths := new(Authorities)
+	auths := newAuthorities()
 
 	if err = keys.LoadFromDir(dir); err != nil {
 		panic(err)
