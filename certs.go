@@ -23,7 +23,7 @@ type cert struct {
 }
 
 type certMap struct {
-	sha1RSA, sha256RSA, sha256ECDSA *cert
+	sha1RSA, sha256RSA, sha256ECDSA, sha384ECDSA *cert
 }
 
 type certLoader struct {
@@ -51,6 +51,8 @@ func addCertToMap(m map[string]certMap, key string, cert *cert, leaf *x509.Certi
 		certs.sha256RSA = cert
 	case x509.ECDSAWithSHA256:
 		certs.sha256ECDSA = cert
+	case x509.ECDSAWithSHA384:
+		certs.sha384ECDSA = cert
 	}
 
 	m[key] = certs
@@ -81,16 +83,23 @@ func (c *certLoader) walker(path string, info os.FileInfo, err error) error {
 		return errors.New("invalid file")
 	}
 
+	pub, _ := x509s[0].PublicKey.(*ecdsa.PublicKey)
+	validCurve := true
+
 	switch x509s[0].SignatureAlgorithm {
 	case x509.SHA1WithRSA:
 	case x509.SHA256WithRSA:
 	case x509.ECDSAWithSHA256:
-		if pub := x509s[0].PublicKey.(*ecdsa.PublicKey); pub.Curve != elliptic.P256() {
-			return fmt.Errorf("unsupported elliptic curve '%s' for certificate signature algorithm '%s'",
-				pub.Params().Name, x509s[0].SignatureAlgorithm)
-		}
+		validCurve = pub.Curve == elliptic.P256()
+	case x509.ECDSAWithSHA384:
+		validCurve = pub.Curve == elliptic.P384()
 	default:
 		return fmt.Errorf("unsupported certificate signature algorithm '%s'", x509s[0].SignatureAlgorithm)
+	}
+
+	if !validCurve {
+		return fmt.Errorf("unsupported elliptic curve '%s' for certificate signature algorithm '%s'",
+			pub.Params().Name, x509s[0].SignatureAlgorithm)
 	}
 
 	ski, err := GetSKI(x509s[0].PublicKey)
@@ -171,7 +180,7 @@ func (c *certLoader) GetCertificate(op *Operation) (out []byte, outSKI SKI, outO
 		return
 	}
 
-	var hasSHA1RSA, hasSHA256RSA, hasSHA256ECDSA bool
+	var hasSHA1RSA, hasSHA256RSA, hasSHA256ECDSA, hasSHA384ECDSA bool
 
 	for i := 0; i < len(op.SigAlgs); i += 2 {
 		switch binary.BigEndian.Uint16(op.SigAlgs[i:]) {
@@ -181,9 +190,11 @@ func (c *certLoader) GetCertificate(op *Operation) (out []byte, outSKI SKI, outO
 			hasSHA256RSA = true
 		case sslECDSASHA256:
 			hasSHA256ECDSA = true
+		case sslECDSASHA384:
+			hasSHA384ECDSA = true
 		}
 
-		if hasSHA1RSA && hasSHA256RSA && hasSHA256ECDSA {
+		if hasSHA1RSA && hasSHA256RSA && hasSHA256ECDSA && hasSHA384ECDSA {
 			break
 		}
 	}
@@ -200,6 +211,8 @@ func (c *certLoader) GetCertificate(op *Operation) (out []byte, outSKI SKI, outO
 	} else if op.SigAlgs != nil {
 		if cert := certs.sha256ECDSA; hasSHA256ECDSA && op.HasECDSACipher && cert != nil {
 			out, outSKI = cert.payload, cert.ski
+		} else if cert := certs.sha384ECDSA; hasSHA384ECDSA && op.HasECDSACipher && cert != nil {
+			out, outSKI = cert.payload, cert.ski
 		} else if cert := certs.sha256RSA; hasSHA256RSA && cert != nil {
 			out, outSKI = cert.payload, cert.ski
 		} else if cert := certs.sha1RSA; hasSHA1RSA && cert != nil {
@@ -207,6 +220,8 @@ func (c *certLoader) GetCertificate(op *Operation) (out []byte, outSKI SKI, outO
 		} else if cert := certs.sha256RSA; cert != nil {
 			out, outSKI = cert.payload, cert.ski
 		} else if cert := certs.sha256ECDSA; cert != nil {
+			out, outSKI = cert.payload, cert.ski
+		} else if cert := certs.sha384ECDSA; cert != nil {
 			out, outSKI = cert.payload, cert.ski
 		} else {
 			err = ErrorCertNotFound
@@ -219,6 +234,8 @@ func (c *certLoader) GetCertificate(op *Operation) (out []byte, outSKI SKI, outO
 		} else if cert := certs.sha256RSA; cert != nil {
 			out, outSKI = cert.payload, cert.ski
 		} else if cert := certs.sha256ECDSA; cert != nil {
+			out, outSKI = cert.payload, cert.ski
+		} else if cert := certs.sha384ECDSA; cert != nil {
 			out, outSKI = cert.payload, cert.ski
 		} else {
 			err = ErrorCertNotFound
