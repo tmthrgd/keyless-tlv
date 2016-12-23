@@ -87,23 +87,7 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 	case OpRSAPSSSignSHA512:
 		opts = rsaPSSOptsSHA512
 	case OpEd25519Sign:
-		if h.GetKey == nil {
-			err = ErrorKeyNotFound
-			return
-		}
-
-		var key crypto.Signer
-		if key, err = h.GetKey(in.SKI); err != nil {
-			return
-		}
-
-		if key, ok := key.(ed25519.PrivateKey); ok {
-			out.Payload = ed25519.Sign(key, in.Payload)
-		} else {
-			err = WrappedError{ErrorCryptoFailed, errors.New("request is EdDSA, but key is not")}
-		}
-
-		return
+		opts = crypto.Hash(0)
 	case OpPong, OpResponse, OpError:
 		err = WrappedError{ErrorUnexpectedOpcode, errors.New(in.Opcode.String())}
 		return
@@ -124,7 +108,7 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 		return
 	}
 
-	// Ensure we don't perform an ECDSA/RSA sign for an RSA/ECDSA request.
+	// Ensure we don't perform a sign operation for a key type that differs from the request.
 	switch in.Opcode {
 	case OpRSASignMD5SHA1, OpRSASignSHA1, OpRSASignSHA224, OpRSASignSHA256, OpRSASignSHA384, OpRSASignSHA512,
 		OpRSAPSSSignSHA256, OpRSAPSSSignSHA384, OpRSAPSSSignSHA512:
@@ -135,6 +119,11 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 	case OpECDSASignMD5SHA1, OpECDSASignSHA1, OpECDSASignSHA224, OpECDSASignSHA256, OpECDSASignSHA384, OpECDSASignSHA512:
 		if _, ok := key.Public().(*ecdsa.PublicKey); !ok {
 			err = WrappedError{ErrorCryptoFailed, errors.New("request is ECDSA, but key is not")}
+			return
+		}
+	case OpEd25519Sign:
+		if _, ok := key.(ed25519.PrivateKey); !ok {
+			err = WrappedError{ErrorCryptoFailed, errors.New("request is EdDSA, but key is not")}
 			return
 		}
 	}
