@@ -28,8 +28,9 @@ type Operation struct {
 	SigAlgs            []byte
 	SNI                []byte
 
+	OCSPResponse []byte
+
 	HasECDSACipher bool
-	OCSPResponse   []byte
 }
 
 func (op *Operation) String() string {
@@ -197,14 +198,14 @@ func (op *Operation) Unmarshal(in []byte) error {
 			if subtle.ConstantTimeByteEq(v, 0) == 0 {
 				return WrappedError{ErrorFormat, errors.New("invalid padding")}
 			}
+		case TagOCSPResponse:
+			op.OCSPResponse = data
 		case TagECDSACipher:
 			if len(data) != 1 {
 				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", TagECDSACipher, len(data))}
 			}
 
 			op.HasECDSACipher = data[0]&0x01 != 0
-		case TagOCSPResponse:
-			op.OCSPResponse = data
 		}
 	}
 
