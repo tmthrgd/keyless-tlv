@@ -5,6 +5,8 @@ package main
 type Op uint16
 
 const (
+	// The range [0x0000, 0x1000) is for opcodes taken from Cloudflare's upstream.
+
 	// Decrypt data using RSA with or without padding
 	OpRSADecrypt    Op = 0x0001
 	OpRSADecryptRaw Op = 0x0008
@@ -43,6 +45,8 @@ const (
 	// Response
 	OpResponse Op = 0x00F0
 	OpError    Op = 0x00FF
+
+	// The range [0x1000, 0xc000) is for opcodes from our protocol version.
 
 	// The range [0xc000, 0xffff) is reserved for private opcodes.
 )

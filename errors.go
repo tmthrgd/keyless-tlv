@@ -5,6 +5,7 @@ import "fmt"
 type Error uint16
 
 const (
+	// The range [0x0000, 0x1000) is for errors taken from Cloudflare's upstream.
 	ErrorCryptoFailed     Error = 0x0001 // Cryptographic error
 	ErrorKeyNotFound      Error = 0x0002 // Private key not found
 	ErrorDiskRead         Error = 0x0003 // [Deprecated]: Disk read failure
@@ -15,6 +16,7 @@ const (
 	ErrorInternal         Error = 0x0008 // Other internal error
 	ErrorCertNotFound     Error = 0x0009 // Certificate not found
 
+	// The range [0x1000, 0xc000) is for errors from our protocol version.
 	ErrorNotAuthorised Error = 0x0101 // The client was not authorised to perform that request.
 
 	// The range [0xc000, 0xffff) is reserved for private errors.
