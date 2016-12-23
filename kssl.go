@@ -138,7 +138,8 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		log.Printf("id: %d, %v", id, err)
 
 		*op = Operation{
-			Opcode: OpError,
+			Opcode:  OpError,
+			Payload: op.errorBuffer[:],
 		}
 
 		errCode := ErrorInternal
@@ -150,7 +151,6 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 			errCode = err.Code
 		}
 
-		op.Payload = op.errorBuffer[:]
 		binary.BigEndian.PutUint16(op.Payload, uint16(errCode))
 	} else if op.Opcode == 0 {
 		op.Opcode = OpResponse
