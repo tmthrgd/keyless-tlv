@@ -140,8 +140,8 @@ func (op *Operation) Unmarshal(in []byte) error {
 	seen := make(map[Tag]struct{})
 
 	for r.Len() != 0 {
-		var tag uint16
-		if err := binary.Read(r, binary.BigEndian, &tag); err != nil {
+		var tag Tag
+		if err := binary.Read(r, binary.BigEndian, (*uint16)(&tag)); err != nil {
 			return WrappedError{ErrorFormat, err}
 		}
 
@@ -151,13 +151,13 @@ func (op *Operation) Unmarshal(in []byte) error {
 		}
 
 		if int(length) > r.Len() {
-			return WrappedError{ErrorFormat, fmt.Errorf("%s length is %dB beyond end of body", Tag(tag), int(length)-r.Len())}
+			return WrappedError{ErrorFormat, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len())}
 		}
 
-		if _, saw := seen[Tag(tag)]; saw {
-			return WrappedError{ErrorFormat, fmt.Errorf("tag %s seen multiple times", Tag(tag))}
+		if _, saw := seen[tag]; saw {
+			return WrappedError{ErrorFormat, fmt.Errorf("tag %s seen multiple times", tag)}
 		}
-		seen[Tag(tag)] = struct{}{}
+		seen[tag] = struct{}{}
 
 		offset, err := r.Seek(int64(length), io.SeekCurrent)
 		if err != nil {
@@ -166,7 +166,7 @@ func (op *Operation) Unmarshal(in []byte) error {
 
 		data := in[offset-int64(length) : offset]
 
-		switch Tag(tag) {
+		switch tag {
 		case TagDigest:
 			if len(data) != sha256.Size {
 				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 32 bytes, was %d bytes", TagDigest, len(data))}
