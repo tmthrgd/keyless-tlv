@@ -28,7 +28,7 @@ type Authorities struct {
 	cache map[authCacheKey]bool
 }
 
-func newAuthorities() *Authorities {
+func NewAuthorities() *Authorities {
 	return &Authorities{
 		m:     make(map[string]ed25519.PublicKey),
 		cache: make(map[authCacheKey]bool),

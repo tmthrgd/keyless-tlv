@@ -26,15 +26,15 @@ type certMap struct {
 	sha1RSA, sha256RSA, sha256ECDSA, sha384ECDSA *cert
 }
 
-type certLoader struct {
+type CertLoader struct {
 	sync.RWMutex
 	skis      map[SKI]*cert
 	snis      map[string]certMap
 	serverIPs map[string]certMap
 }
 
-func newCertLoader() *certLoader {
-	return &certLoader{
+func NewCertLoader() *CertLoader {
+	return &CertLoader{
 		skis:      make(map[SKI]*cert),
 		snis:      make(map[string]certMap),
 		serverIPs: make(map[string]certMap),
@@ -60,7 +60,7 @@ func addCertToMap(m map[string]certMap, key string, cert *cert, leaf *x509.Certi
 
 var crtExt = regexp.MustCompile(`.+\.(crt|pem)`)
 
-func (c *certLoader) walker(path string, info os.FileInfo, err error) error {
+func (c *CertLoader) walker(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		return err
 	}
@@ -138,7 +138,7 @@ func (c *certLoader) walker(path string, info os.FileInfo, err error) error {
 	return nil
 }
 
-func (c *certLoader) LoadFromDir(dir string) error {
+func (c *CertLoader) LoadFromDir(dir string) error {
 	return filepath.Walk(dir, c.walker)
 }
 
@@ -161,7 +161,7 @@ const (
 	sslED448   = 0x0808
 )
 
-func (c *certLoader) GetCertificate(op *Operation) (out []byte, outSKI SKI, outOCSP []byte, err error) {
+func (c *CertLoader) GetCertificate(op *Operation) (out []byte, outSKI SKI, outOCSP []byte, err error) {
 	if op.SKI.Valid() {
 		c.RLock()
 

@@ -16,7 +16,7 @@ func BenchmarkIsAuthorised(b *testing.B) {
 
 	id := sha256.Sum256(authPub)
 
-	a := newAuthorities()
+	a := NewAuthorities()
 	a.Add(authPub)
 
 	var pub [ed25519.PublicKeySize]byte

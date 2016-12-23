@@ -52,8 +52,8 @@ func runner(tb testing.TB) {
 		log.SetOutput(os.Stderr)
 	}()
 
-	keys := newKeyLoader()
-	certs := newCertLoader()
+	keys := NewKeyLoader()
+	certs := NewCertLoader()
 
 	if err := keys.LoadFromDir("./test-data/certificate"); err != nil {
 		tb.Fatal(err)
@@ -237,8 +237,8 @@ func signing(tb testing.TB) {
 		log.SetOutput(os.Stderr)
 	}()
 
-	keys := newKeyLoader()
-	certs := newCertLoader()
+	keys := NewKeyLoader()
+	certs := NewCertLoader()
 
 	if err := keys.LoadFromDir("./test-data/certificate"); err != nil {
 		tb.Fatal(err)

@@ -18,18 +18,18 @@ import (
 
 var keyExt = regexp.MustCompile(`.+\.key`)
 
-type keyLoader struct {
+type KeyLoader struct {
 	sync.RWMutex
 	skis map[SKI]crypto.Signer
 }
 
-func newKeyLoader() *keyLoader {
-	return &keyLoader{
+func NewKeyLoader() *KeyLoader {
+	return &KeyLoader{
 		skis: make(map[SKI]crypto.Signer),
 	}
 }
 
-func (k *keyLoader) GetKey(ski SKI) (priv crypto.Signer, err error) {
+func (k *KeyLoader) GetKey(ski SKI) (priv crypto.Signer, err error) {
 	var ok bool
 
 	if ski.Valid() {
@@ -45,7 +45,7 @@ func (k *keyLoader) GetKey(ski SKI) (priv crypto.Signer, err error) {
 	return
 }
 
-func (k *keyLoader) walker(path string, info os.FileInfo, err error) error {
+func (k *KeyLoader) walker(path string, info os.FileInfo, err error) error {
 	if err != nil {
 		return err
 	}
@@ -88,6 +88,6 @@ func (k *keyLoader) walker(path string, info os.FileInfo, err error) error {
 	return nil
 }
 
-func (k *keyLoader) LoadFromDir(dir string) error {
+func (k *KeyLoader) LoadFromDir(dir string) error {
 	return filepath.Walk(dir, k.walker)
 }
