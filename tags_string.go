@@ -32,7 +32,7 @@ func (i Tag) String() string {
 		return _Tag_name_2
 	case i == 257:
 		return _Tag_name_3
-	case i == 49152:
+	case i == 49153:
 		return _Tag_name_4
 	default:
 		return fmt.Sprintf("Tag(%d)", i)
