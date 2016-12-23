@@ -15,6 +15,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/big"
+
+	"golang.org/x/crypto/ed25519"
 )
 
 type SKI [sha1.Size]byte
@@ -40,6 +42,8 @@ func GetSKI(pub crypto.PublicKey) (ski SKI, err error) {
 		}
 	case *ecdsa.PublicKey:
 		publicKeyBytes = elliptic.Marshal(pub.Curve, pub.X, pub.Y)
+	case ed25519.PublicKey:
+		publicKeyBytes = pub
 	default:
 		err = errors.New("only RSA and ECDSA public keys supported")
 		return

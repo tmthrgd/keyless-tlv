@@ -6,6 +6,8 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"errors"
+
+	"golang.org/x/crypto/ed25519"
 )
 
 var (
@@ -84,6 +86,24 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 		opts = rsaPSSOptsSHA384
 	case OpRSAPSSSignSHA512:
 		opts = rsaPSSOptsSHA512
+	case OpEd25519Sign:
+		if h.GetKey == nil {
+			err = ErrorKeyNotFound
+			return
+		}
+
+		var key crypto.Signer
+		if key, err = h.GetKey(in.SKI); err != nil {
+			return
+		}
+
+		if key, ok := key.(ed25519.PrivateKey); ok {
+			out.Payload = ed25519.Sign(key, in.Payload)
+		} else {
+			err = WrappedError{ErrorCryptoFailed, errors.New("request is EdDSA, but key is not")}
+		}
+
+		return
 	case OpPong, OpResponse, OpError:
 		err = WrappedError{ErrorUnexpectedOpcode, errors.New(in.Opcode.String())}
 		return

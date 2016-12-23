@@ -11,6 +11,7 @@ const (
 	_Op_name_3 = "OpRSAPSSSignSHA256OpRSAPSSSignSHA384OpRSAPSSSignSHA512"
 	_Op_name_4 = "OpResponseOpPingOpPongOpActivate"
 	_Op_name_5 = "OpError"
+	_Op_name_6 = "OpEd25519Sign"
 )
 
 var (
@@ -20,6 +21,7 @@ var (
 	_Op_index_3 = [...]uint8{0, 18, 36, 54}
 	_Op_index_4 = [...]uint8{0, 10, 16, 22, 32}
 	_Op_index_5 = [...]uint8{0, 7}
+	_Op_index_6 = [...]uint8{0, 13}
 )
 
 func (i Op) String() string {
@@ -40,6 +42,8 @@ func (i Op) String() string {
 		return _Op_name_4[_Op_index_4[i]:_Op_index_4[i+1]]
 	case i == 255:
 		return _Op_name_5
+	case i == 257:
+		return _Op_name_6
 	default:
 		return fmt.Sprintf("Op(%d)", i)
 	}

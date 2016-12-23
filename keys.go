@@ -2,11 +2,15 @@ package main
 
 import (
 	"crypto"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sync"
+
+	"golang.org/x/crypto/ed25519"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/cloudflare/cfssl/helpers"
 	"github.com/cloudflare/cfssl/helpers/derhelpers"
@@ -58,10 +62,18 @@ func (k *keyLoader) walker(path string, info os.FileInfo, err error) error {
 	priv, err := helpers.ParsePrivateKeyPEM(in)
 	if err != nil {
 		priv, err = derhelpers.ParsePrivateKeyDER(in)
-	}
+		if err != nil {
+			privSSH, err := ssh.ParseRawPrivateKey(in)
+			if err != nil {
+				return err
+			}
 
-	if err != nil {
-		return err
+			if key, ok := privSSH.(*ed25519.PrivateKey); ok {
+				priv = *key
+			} else {
+				return fmt.Errorf("unsupported key type %T", privSSH)
+			}
+		}
 	}
 
 	ski, err := GetSKI(priv.Public())

@@ -47,6 +47,7 @@ const (
 	OpError    Op = 0x00FF
 
 	// The range [0x0100, 0xc000) is for opcodes from our protocol version.
+	OpEd25519Sign Op = 0x0101 // Sign data using Ed25519
 
 	// The range [0xc000, 0xffff) is reserved for private opcodes.
 )
