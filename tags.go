@@ -5,7 +5,7 @@ package main
 type Tag uint16
 
 const (
-	// The range [0x0000, 0x1000) is for tags taken from Cloudflare's upstream.
+	// The range [0x0000, 0x0100) is for tags taken from Cloudflare's upstream.
 	TagDigest   Tag = 0x0001 // [Deprecated]: SHA256 hash of RSA public key
 	TagSNI      Tag = 0x0002 // Server Name Identifier
 	TagClientIP Tag = 0x0003 // Client IP Address
@@ -16,7 +16,7 @@ const (
 	TagPayload  Tag = 0x0012 // Request/response payload
 	TagPadding  Tag = 0x0020 // Padding
 
-	// The range [0x1000, 0xc000) is for tags from our protocol version.
+	// The range [0x0100, 0xc000) is for tags from our protocol version.
 	TagOCSPResponse Tag = 0x0101 // The OCSP response to staple
 
 	// The range [0xc000, 0xffff) is reserved for private tags.
