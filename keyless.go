@@ -68,6 +68,7 @@ func main() {
 
 	keys := newKeyLoader()
 	certs := newCertLoader()
+	auths := new(Authorities)
 
 	if err = keys.LoadFromDir(dir); err != nil {
 		panic(err)
@@ -77,16 +78,18 @@ func main() {
 		panic(err)
 	}
 
-	handler := &RequestHandler{
-		GetCert: certs.GetCertificate,
-		GetKey:  keys.GetKey,
-	}
-
-	if err := handler.ReadKeyFile(keyfilePath); err != nil {
+	if err := auths.ReadFrom(authoritiesPath); err != nil {
 		panic(err)
 	}
 
-	if err := handler.Authorities.ReadFrom(authoritiesPath); err != nil {
+	handler := &RequestHandler{
+		GetCert: certs.GetCertificate,
+		GetKey:  keys.GetKey,
+
+		IsAuthorised: auths.IsAuthorised,
+	}
+
+	if err := handler.ReadKeyFile(keyfilePath); err != nil {
 		panic(err)
 	}
 
@@ -105,11 +108,11 @@ func main() {
 				panic(err)
 			}
 
-			if err := handler.ReadKeyFile(keyfilePath); err != nil {
+			if err := auths.ReadFrom(authoritiesPath); err != nil {
 				panic(err)
 			}
 
-			if err := handler.Authorities.ReadFrom(authoritiesPath); err != nil {
+			if err := handler.ReadKeyFile(keyfilePath); err != nil {
 				panic(err)
 			}
 

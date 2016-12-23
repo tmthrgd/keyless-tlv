@@ -28,7 +28,8 @@ type Operation struct {
 	SigAlgs            []byte
 	SNI                []byte
 
-	OCSPResponse []byte
+	OCSPResponse  []byte
+	Authorisation []byte
 
 	HasECDSACipher bool
 
@@ -98,6 +99,13 @@ func (op *Operation) Marshal(w Writer) {
 		binary.Write(w, binary.BigEndian, uint16(TagOCSPResponse))
 		binary.Write(w, binary.BigEndian, uint16(len(op.OCSPResponse)))
 		w.Write(op.OCSPResponse)
+	}
+
+	if op.Authorisation != nil {
+		// authorisation tag
+		binary.Write(w, binary.BigEndian, uint16(TagAuthorisation))
+		binary.Write(w, binary.BigEndian, uint16(len(op.Authorisation)))
+		w.Write(op.Authorisation)
 	}
 
 	if op.HasECDSACipher {
@@ -209,6 +217,8 @@ func (op *Operation) Unmarshal(in []byte) error {
 			}
 		case TagOCSPResponse:
 			op.OCSPResponse = data
+		case TagAuthorisation:
+			op.Authorisation = data
 		case TagECDSACipher:
 			if len(data) != 1 {
 				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", TagECDSACipher, len(data))}

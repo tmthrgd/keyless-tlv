@@ -5,7 +5,6 @@ import (
 	"crypto"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -19,7 +18,7 @@ const (
 	VersionMajor = 2
 	VersionMinor = 0
 
-	HeaderLength            = 8 + 8 + ed25519.SignatureSize + ed25519.PublicKeySize + ed25519.SignatureSize
+	HeaderLength            = 8 + ed25519.PublicKeySize + ed25519.SignatureSize
 	HeaderLengthNoSignature = 8
 )
 
@@ -31,14 +30,11 @@ type RequestHandler struct {
 	GetCert func(op *Operation) (out []byte, ski SKI, OCSP []byte, err error)
 	GetKey  func(ski SKI) (priv crypto.Signer, err error)
 
-	PublicKey  PublicKey
-	PrivateKey ed25519.PrivateKey
+	PublicKey     PublicKey
+	PrivateKey    ed25519.PrivateKey
+	Authorisation []byte
 
-	Authority struct {
-		ID, Signature []byte
-	}
-
-	Authorities Authorities
+	IsAuthorised func(pub ed25519.PublicKey, op *Operation) error
 
 	NoSignature bool
 }
@@ -72,19 +68,10 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		return
 	}
 
-	var remAuthID [8]byte
-	var remAuthSig, remSig [ed25519.SignatureSize]byte
 	var remPublic [ed25519.PublicKeySize]byte
+	var remSig [ed25519.SignatureSize]byte
 
 	if !h.NoSignature {
-		if _, err = r.Read(remAuthID[:]); err != nil {
-			return
-		}
-
-		if _, err = r.Read(remAuthSig[:]); err != nil {
-			return
-		}
-
 		if _, err = r.Read(remPublic[:]); err != nil {
 			return
 		}
@@ -92,21 +79,6 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		if _, err = r.Read(remSig[:]); err != nil {
 			return
 		}
-	}
-
-	authority, authorityOk := ed25519.PublicKey(nil), false
-	var authID, authSig []byte
-	pubKey, privKey := PublicKey(nil), ed25519.PrivateKey(nil)
-
-	if !h.NoSignature {
-		h.RLock()
-
-		authority, authorityOk = h.Authorities.Get(remAuthID[:])
-
-		authID, authSig = h.Authority.ID, h.Authority.Signature
-		pubKey, privKey = h.PublicKey, h.PrivateKey
-
-		h.RUnlock()
 	}
 
 	op := new(Operation)
@@ -118,20 +90,24 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	} else if !h.NoSignature &&
 		!ed25519.Verify(remPublic[:], in[headerLength:], remSig[:]) {
 		err = WrappedError{ErrorNotAuthorised, errors.New("invalid signature")}
-	} else if !h.NoSignature &&
-		!(authorityOk && ed25519.Verify(authority, remPublic[:], remAuthSig[:])) {
-		err = WrappedError{
-			Code: ErrorNotAuthorised,
-			Err:  fmt.Errorf("%s not authorised", PublicKey(remPublic[:])),
-		}
 	} else if err = op.Unmarshal(in[headerLength:]); err == nil {
-		if h.NoSignature {
-			log.Printf("id: %d, %v", id, op)
-		} else {
-			log.Printf("id: %d, key: %s, %v", id, PublicKey(remPublic[:]), op)
+		if h.IsAuthorised != nil {
+			if h.NoSignature {
+				err = h.IsAuthorised(nil, op)
+			} else {
+				err = h.IsAuthorised(ed25519.PublicKey(remPublic[:]), op)
+			}
 		}
 
-		op, err = h.Process(op)
+		if err == nil {
+			if h.NoSignature {
+				log.Printf("id: %d, %v", id, op)
+			} else {
+				log.Printf("id: %d, key: %s, %v", id, PublicKey(remPublic[:]), op)
+			}
+
+			op, err = h.Process(op)
+		}
 	}
 
 	if err != nil {
@@ -156,6 +132,8 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		op.Opcode = OpResponse
 	}
 
+	op.Authorisation = h.Authorisation
+
 	b := bytes.NewBuffer(in[:0])
 	b.Grow(PadTo + 3)
 
@@ -164,11 +142,17 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	binary.Write(b, binary.BigEndian, uint16(0)) // length placeholder
 	binary.Write(b, binary.BigEndian, id)
 
+	var privKey ed25519.PrivateKey
+
 	if !h.NoSignature {
-		b.Write(authID)
-		b.Write(authSig)
-		b.Write(pubKey)
+		h.RLock()
+
+		b.Write(h.PublicKey)
 		b.Write(nilSig[:]) // signature placeholder
+
+		privKey = h.PrivateKey
+
+		h.RUnlock()
 	}
 
 	op.Marshal(b)

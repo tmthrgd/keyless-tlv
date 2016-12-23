@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 	"os"
 	"sync"
 
@@ -31,12 +32,28 @@ func (a *Authorities) Remove(publicKey ed25519.PublicKey) {
 	a.Unlock()
 }
 
-func (a *Authorities) Get(id []byte) (ed25519.PublicKey, bool) {
+func (a *Authorities) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
+	if len(pub) == 0 {
+		panic("request does not have a signature")
+	}
+
+	if len(op.Authorisation) != 8+ed25519.SignatureSize {
+		return WrappedError{ErrorFormat, fmt.Errorf("%s should be %d bytes, was %d bytes",
+			TagAuthorisation, 8+ed25519.SignatureSize, len(op.Authorisation))}
+	}
+
 	a.RLock()
-	key, ok := a.m[string(id)]
+	key, ok := a.m[string(op.Authorisation[:8])]
 	a.RUnlock()
 
-	return key, ok
+	if !ok || !ed25519.Verify(key, pub, op.Authorisation[8:]) {
+		return WrappedError{
+			Code: ErrorNotAuthorised,
+			Err:  fmt.Errorf("%s not authorised", PublicKey(pub)),
+		}
+	}
+
+	return nil
 }
 
 func (a *Authorities) ReadFrom(path string) error {
