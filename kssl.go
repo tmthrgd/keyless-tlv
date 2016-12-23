@@ -23,11 +23,7 @@ const (
 	HeaderLengthNoSignature = 8
 )
 
-var (
-	nilID     [8]byte
-	nilPubKey [ed25519.PublicKeySize]byte
-	nilSig    [ed25519.SignatureSize]byte
-)
+var nilSig [ed25519.SignatureSize]byte
 
 type RequestHandler struct {
 	sync.RWMutex
@@ -99,10 +95,17 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	}
 
 	authority, authorityOk := ed25519.PublicKey(nil), false
+	var authID, authSig []byte
+	pubKey, privKey := PublicKey(nil), ed25519.PrivateKey(nil)
 
 	if !h.NoSignature {
 		h.RLock()
+
 		authority, authorityOk = h.Authorities.Get(remAuthID[:])
+
+		authID, authSig = h.Authority.ID, h.Authority.Signature
+		pubKey, privKey = h.PublicKey, h.PrivateKey
+
 		h.RUnlock()
 	}
 
@@ -162,10 +165,10 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	binary.Write(b, binary.BigEndian, id)
 
 	if !h.NoSignature {
-		b.Write(nilID[:])     // auth id placeholder
-		b.Write(nilSig[:])    // auth signature placeholder
-		b.Write(nilPubKey[:]) // public key placeholder
-		b.Write(nilSig[:])    // signature placeholder
+		b.Write(authID)
+		b.Write(authSig)
+		b.Write(pubKey)
+		b.Write(nilSig[:]) // signature placeholder
 	}
 
 	op.Marshal(b)
@@ -174,17 +177,7 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	binary.BigEndian.PutUint16(out[2:], uint16(b.Len()-headerLength))
 
 	if !h.NoSignature {
-		h.RLock()
-
-		copy(out[8:], h.Authority.ID)
-		copy(out[16:], h.Authority.Signature)
-		copy(out[16+ed25519.SignatureSize:], h.PublicKey)
-
-		priv := h.PrivateKey
-
-		h.RUnlock()
-
-		locSig := ed25519.Sign(priv, out[headerLength:])
+		locSig := ed25519.Sign(privKey, out[headerLength:])
 		copy(out[headerLength-ed25519.SignatureSize:], locSig)
 	}
 
