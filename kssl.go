@@ -95,7 +95,7 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 			if h.NoSignature {
 				err = h.IsAuthorised(nil, op)
 			} else {
-				err = h.IsAuthorised(ed25519.PublicKey(remPublic[:]), op)
+				err = h.IsAuthorised(remPublic[:], op)
 			}
 		}
 
