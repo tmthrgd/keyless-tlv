@@ -1,14 +1,14 @@
-01 00                                           ; version
-00 9e                                           ; length
+02 00                                           ; version
+00 a2                                           ; length
 00 00 00 2b                                     ; id
-11                                              ; opcode tag
-00 01                                           ; length
-01                                              ; rsa decrypt
-04                                              ; ski tag
+00 11                                           ; opcode tag
+00 02                                           ; length
+00 01                                           ; rsa decrypt
+00 04                                           ; ski tag
 00 14                                           ; length
 f8 8c 1f d9 90 bb 15 9e 26 a2 bb 3c 59 64 9f f5 ; value - ski of test-rsa-key.key
 69 ea da ad                                     ; ...
-12                                              ; payload tag
+00 12                                           ; payload tag
 00 80                                           ; length
 a5 eb 3c c5 ba e8 5a 26 32 43 3d ac b7 bd a2 a5 ; value - corrupt encryption of 'test'
 66 a5 ff 7d a6 78 9c 80 bb bc ab 91 c5 64 a5 a6 ; ...
@@ -19,12 +19,12 @@ a5 eb 3c c5 ba e8 5a 26 32 43 3d ac b7 bd a2 a5 ; value - corrupt encryption of 
 7f da b8 89 41 74 a5 ca 7c a5 e0 5f 46 2a a6 43 ; ...
 65 ef 24 7a cc 55 59 a5 a5 1d 6d a2 aa 90 35 7b ; ...
 ---
-01 00                                           ; version
-00 08                                           ; length
+02 00                                           ; version
+00 0c                                           ; length
 00 00 00 2b                                     ; id
-11                                              ; opcode tag
-00 01                                           ; length
-ff                                              ; error
-12                                              ; payload tag
-00 01                                           ; length
-01                                              ; crypto failed
+00 11                                           ; opcode tag
+00 02                                           ; length
+00 ff                                           ; error
+00 12                                           ; payload tag
+00 02                                           ; length
+00 01                                           ; crypto failed

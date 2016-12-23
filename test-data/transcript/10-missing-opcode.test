@@ -1,13 +1,13 @@
-01 00       ; version
+02 00       ; version
 00 00       ; length
 00 00 00 0a ; id
 ---
-01 00       ; version
-00 08       ; length
+02 00       ; version
+00 0c       ; length
 00 00 00 0a ; id
-11          ; opcode tag
-00 01       ; length
-ff          ; error
-12          ; payload tag
-00 01       ; length
-05          ; bad opcode
+00 11       ; opcode tag
+00 02       ; length
+00 ff       ; error
+00 12       ; payload tag
+00 02       ; length
+00 05       ; bad opcode

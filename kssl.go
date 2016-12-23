@@ -16,14 +16,11 @@ import (
 )
 
 const (
-	Version2Major = 2
-	Version2Minor = 0
+	VersionMajor = 2
+	VersionMinor = 0
 
-	Version1Major = 1
-	Version1Minor = 0
-
-	HeaderLength2 = 8 + 8 + ed25519.SignatureSize + ed25519.PublicKeySize + ed25519.SignatureSize
-	HeaderLength1 = 8
+	HeaderLength            = 8 + 8 + ed25519.SignatureSize + ed25519.PublicKeySize + ed25519.SignatureSize
+	HeaderLengthNoSignature = 8
 )
 
 var (
@@ -47,15 +44,15 @@ type RequestHandler struct {
 
 	Authorities Authorities
 
-	V1 bool
+	NoSignature bool
 }
 
 func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	start := time.Now()
 
-	headerLength, versionMajor, versionMinor := HeaderLength2, byte(Version2Major), byte(Version2Minor)
-	if h.V1 {
-		headerLength, versionMajor, versionMinor = HeaderLength1, Version1Major, Version1Minor
+	headerLength := HeaderLength
+	if h.NoSignature {
+		headerLength = HeaderLengthNoSignature
 	}
 
 	r := bytes.NewReader(in)
@@ -83,7 +80,7 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	var remAuthSig, remSig [ed25519.SignatureSize]byte
 	var remPublic [ed25519.PublicKeySize]byte
 
-	if !h.V1 {
+	if !h.NoSignature {
 		if _, err = r.Read(remAuthID[:]); err != nil {
 			return
 		}
@@ -103,7 +100,7 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 
 	authority, authorityOk := ed25519.PublicKey(nil), false
 
-	if !h.V1 {
+	if !h.NoSignature {
 		h.RLock()
 		authority, authorityOk = h.Authorities.Get(remAuthID[:])
 		h.RUnlock()
@@ -111,19 +108,21 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 
 	op := new(Operation)
 
-	if major != versionMajor {
+	if major != VersionMajor {
 		err = ErrorVersionMismatch
 	} else if int(length) != r.Len() {
 		err = WrappedError{ErrorFormat, errors.New("invalid header length")}
-	} else if !h.V1 && !ed25519.Verify(remPublic[:], in[headerLength:], remSig[:]) {
+	} else if !h.NoSignature &&
+		!ed25519.Verify(remPublic[:], in[headerLength:], remSig[:]) {
 		err = WrappedError{ErrorNotAuthorised, errors.New("invalid signature")}
-	} else if !h.V1 && !(authorityOk && ed25519.Verify(authority, remPublic[:], remAuthSig[:])) {
+	} else if !h.NoSignature &&
+		!(authorityOk && ed25519.Verify(authority, remPublic[:], remAuthSig[:])) {
 		err = WrappedError{
 			Code: ErrorNotAuthorised,
 			Err:  fmt.Errorf("%s not authorised", PublicKey(remPublic[:])),
 		}
 	} else if err = op.Unmarshal(in[headerLength:]); err == nil {
-		if h.V1 {
+		if h.NoSignature {
 			log.Printf("id: %d, %v", id, op)
 		} else {
 			log.Printf("id: %d, key: %s, %v", id, PublicKey(remPublic[:]), op)
@@ -148,12 +147,8 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 			errCode = err.Code
 		}
 
-		if errCode > 0xff {
-			op.Payload = make([]byte, 2)
-			binary.BigEndian.PutUint16(op.Payload, uint16(errCode))
-		} else {
-			op.Payload = []byte{byte(errCode)}
-		}
+		op.Payload = make([]byte, 2)
+		binary.BigEndian.PutUint16(op.Payload, uint16(errCode))
 	} else if op.Opcode == 0 {
 		op.Opcode = OpResponse
 	}
@@ -161,12 +156,12 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	b := bytes.NewBuffer(in[:0])
 	b.Grow(PadTo + 3)
 
-	b.WriteByte(versionMajor)
-	b.WriteByte(versionMinor)
+	b.WriteByte(VersionMajor)
+	b.WriteByte(VersionMinor)
 	binary.Write(b, binary.BigEndian, uint16(0)) // length placeholder
 	binary.Write(b, binary.BigEndian, id)
 
-	if !h.V1 {
+	if !h.NoSignature {
 		b.Write(nilID[:])     // auth id placeholder
 		b.Write(nilSig[:])    // auth signature placeholder
 		b.Write(nilPubKey[:]) // public key placeholder
@@ -178,7 +173,7 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	out, err = b.Bytes(), nil
 	binary.BigEndian.PutUint16(out[2:], uint16(b.Len()-headerLength))
 
-	if !h.V1 {
+	if !h.NoSignature {
 		h.RLock()
 
 		copy(out[8:], h.Authority.ID)

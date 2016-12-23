@@ -50,40 +50,34 @@ type Writer interface {
 
 func (op *Operation) Marshal(w Writer) {
 	// opcode tag
-	w.WriteByte(byte(TagOpcode))
-
-	if op.Opcode > 0xff {
-		binary.Write(w, binary.BigEndian, uint16(2))
-		binary.Write(w, binary.BigEndian, uint16(op.Opcode))
-	} else {
-		binary.Write(w, binary.BigEndian, uint16(1))
-		w.WriteByte(byte(op.Opcode))
-	}
+	binary.Write(w, binary.BigEndian, uint16(TagOpcode))
+	binary.Write(w, binary.BigEndian, uint16(2))
+	binary.Write(w, binary.BigEndian, uint16(op.Opcode))
 
 	if op.SKI.Valid() {
 		// ski tag
-		w.WriteByte(byte(TagSKI))
+		binary.Write(w, binary.BigEndian, uint16(TagSKI))
 		binary.Write(w, binary.BigEndian, uint16(len(op.SKI)))
 		w.Write(op.SKI[:])
 	}
 
 	if op.ClientIP != nil {
 		// client ip tag
-		w.WriteByte(byte(TagClientIP))
+		binary.Write(w, binary.BigEndian, uint16(TagClientIP))
 		binary.Write(w, binary.BigEndian, uint16(len(op.ClientIP)))
 		w.Write(op.ClientIP)
 	}
 
 	if op.ServerIP != nil {
 		// server ip tag
-		w.WriteByte(byte(TagServerIP))
+		binary.Write(w, binary.BigEndian, uint16(TagServerIP))
 		binary.Write(w, binary.BigEndian, uint16(len(op.ServerIP)))
 		w.Write(op.ServerIP)
 	}
 
 	if op.SNI != nil {
 		// sni tag
-		w.WriteByte(byte(TagSNI))
+		binary.Write(w, binary.BigEndian, uint16(TagSNI))
 		binary.Write(w, binary.BigEndian, uint16(len(op.SNI)))
 		w.Write(op.SNI)
 	}
@@ -97,7 +91,7 @@ func (op *Operation) Marshal(w Writer) {
 
 	if op.Payload != nil {
 		// payload tag
-		w.WriteByte(byte(TagPayload))
+		binary.Write(w, binary.BigEndian, uint16(TagPayload))
 		binary.Write(w, binary.BigEndian, uint16(len(op.Payload)))
 		w.Write(op.Payload)
 	}
@@ -106,7 +100,7 @@ func (op *Operation) Marshal(w Writer) {
 		toPad := PadTo - w.Len()
 
 		// padding tag
-		w.WriteByte(byte(TagPadding))
+		binary.Write(w, binary.BigEndian, uint16(TagPadding))
 		binary.Write(w, binary.BigEndian, uint16(toPad))
 		w.Write(padding[:toPad])
 	}
@@ -120,13 +114,13 @@ func (op *Operation) Unmarshal(in []byte) error {
 	seen := make(map[Tag]struct{})
 
 	for r.Len() != 0 {
-		tag, err := r.ReadByte()
-		if err != nil {
+		var tag uint16
+		if err := binary.Read(r, binary.BigEndian, &tag); err != nil {
 			return WrappedError{ErrorFormat, err}
 		}
 
 		var length uint16
-		if err = binary.Read(r, binary.BigEndian, &length); err != nil {
+		if err := binary.Read(r, binary.BigEndian, &length); err != nil {
 			return WrappedError{ErrorFormat, err}
 		}
 
@@ -178,18 +172,11 @@ func (op *Operation) Unmarshal(in []byte) error {
 
 			op.SigAlgs = data
 		case TagOpcode:
-			switch len(data) {
-			case 1:
-				op.Opcode = Op(data[0])
-			case 2:
-				op.Opcode = Op(binary.BigEndian.Uint16(data))
-
-				if op.Opcode < 0x100 {
-					return WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 bytes for opcodes in [0x00, 0xff], was 2 bytes", TagOpcode)}
-				}
-			default:
-				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 or 2 bytes, was %d bytes", TagOpcode, len(data))}
+			if len(data) != 2 {
+				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 2 bytes, was %d bytes", TagOpcode, len(data))}
 			}
+
+			op.Opcode = Op(binary.BigEndian.Uint16(data))
 		case TagPayload:
 			op.Payload = data
 		case TagPadding:

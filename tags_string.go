@@ -28,7 +28,7 @@ func (i Tag) String() string {
 		return _Tag_name_1[_Tag_index_1[i]:_Tag_index_1[i+1]]
 	case i == 32:
 		return _Tag_name_2
-	case i == 192:
+	case i == 49152:
 		return _Tag_name_3
 	default:
 		return fmt.Sprintf("Tag(%d)", i)

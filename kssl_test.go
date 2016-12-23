@@ -67,7 +67,7 @@ func runner(tb testing.TB) {
 		GetCert: certs.GetCertificate,
 		GetKey:  keys.GetKey,
 
-		V1: true,
+		NoSignature: true,
 	}
 
 	if err := filepath.Walk("./test-data/transcript", func(path string, info os.FileInfo, err error) error {
@@ -252,7 +252,7 @@ func signing(tb testing.TB) {
 		GetCert: certs.GetCertificate,
 		GetKey:  keys.GetKey,
 
-		V1: true,
+		NoSignature: true,
 	}
 
 	for j, idx := 0, 0; j <= 1; j++ {
@@ -371,18 +371,18 @@ func generateSigningRequest(idx byte, h crypto.Hash, ecdsaOrPSS bool) ([]byte, [
 
 	return hash, bytes.Join([][]byte{
 		[]byte{
-			0x01, 0x00, // version
-			0x00, 0x1e + byte(len(hash)), // length
+			0x02, 0x00, // version
+			0x00, 0x22 + byte(len(hash)), // length
 			0x00, 0x00, 0x00, idx, // id
-			0x11,       // opcode tag
-			0x00, 0x01, // length
-			byte(opcode), // opcode
-			0x04,         // ski tag
-			0x00, 0x14,   // length
+			0x00, 0x11, // opcode tag
+			0x00, 0x02, // length
+			0x00, byte(opcode), // opcode
+			0x00, 0x04, // ski tag
+			0x00, 0x14, // length
 		},
 		ski[:],
 		[]byte{
-			0x12,                  // payload tag
+			0x00, 0x12, // payload tag
 			0x00, byte(len(hash)), // length
 		},
 		hash,
@@ -396,15 +396,15 @@ func runTestSigningCase(t *testing.T, idx byte, h crypto.Hash, ecdsaOrPSS bool, 
 	}
 
 	expected1 := []byte{
-		0x01, 0x00, // version
+		0x02, 0x00, // version
 		0x00, /*xx*/ // length
 	}
 	expected2 := []byte{
 		0x00, 0x00, 0x00, byte(idx), // id
-		0x11,       // opcode tag
-		0x00, 0x01, // length
-		0xf0, // response
-		0x12, // payload tag
+		0x00, 0x11, // opcode tag
+		0x00, 0x02, // length
+		0x00, 0xf0, // response
+		0x00, 0x12, // payload tag
 		0x00, /*xx*/ // length
 	}
 

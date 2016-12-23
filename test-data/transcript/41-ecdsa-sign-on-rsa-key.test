@@ -1,21 +1,21 @@
-01 00                   ; version
-00 1b                   ; length
+02 00                   ; version
+00 1e                   ; length
 00 00 00 29             ; id
-11                      ; opcode tag
-00 01                   ; length
-13                      ; ecdsa sign sha1
-04                      ; ski tag
+00 11                   ; opcode tag
+00 02                   ; length
+00 13                   ; ecdsa sign sha1
+00 04                   ; ski tag
 00 14                   ; length
 f8 8c 1f d9 90 bb 15 9e ; value - ski of test-rsa-key.key
 26 a2 bb 3c 59 64 9f f5 ; ...
 69 ea da ad             ; ...
 ---
-01 00                   ; version
-00 08                   ; length
+02 00                   ; version
+00 0c                   ; length
 00 00 00 29             ; id
-11                      ; opcode tag
-00 01                   ; length
-ff                      ; error
-12                      ; payload tag
-00 01                   ; length
-01                      ; crypto failed
+00 11                   ; opcode tag
+00 02                   ; length
+00 ff                   ; error
+00 12                   ; payload tag
+00 02                   ; length
+00 01                   ; crypto failed

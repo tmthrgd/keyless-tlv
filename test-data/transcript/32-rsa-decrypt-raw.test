@@ -1,14 +1,14 @@
-01 00                                           ; version
-00 9e                                           ; length
+02 00                                           ; version
+00 a2                                           ; length
 00 00 00 20                                     ; id
-11                                              ; opcode tag
-00 01                                           ; length
-08                                              ; rsa decrypt raw
-04                                              ; ski tag
+00 11                                           ; opcode tag
+00 02                                           ; length
+00 08                                           ; rsa decrypt raw
+00 04                                           ; ski tag
 00 14                                           ; length
 f8 8c 1f d9 90 bb 15 9e 26 a2 bb 3c 59 64 9f f5 ; value - ski of test-rsa-key.key
 69 ea da ad                                     ; ...
-12                                              ; payload tag
+00 12                                           ; payload tag
 00 80                                           ; length
 5a fa 7b 8e 4a eb 3d 70 c0 4f f0 dc 88 ac fa a6 ; value
 5b e2 ff ed 4a 54 3a 54 5a 4c 9b 43 89 b4 dc c6 ; ...
@@ -19,13 +19,13 @@ a3 5e b0 df 0a 3d 0b 09 bf b1 9c 24 8f fb d3 16 ; ...
 ea e4 d1 84 9f 9a 0b 77 27 8e 98 11 b1 60 6a 4b ; ...
 3c d5 b9 f4 d9 4e 6a 65 5b 52 fd 23 0c bb c0 09 ; ...
 ---
-01 00                                           ; version
-00 87                                           ; length
+02 00                                           ; version
+00 8a                                           ; length
 00 00 00 20                                     ; id
-11                                              ; opcode tag
-00 01                                           ; length
-f0                                              ; response
-12                                              ; payload tag
+00 11                                           ; opcode tag
+00 02                                           ; length
+00 f0                                           ; response
+00 12                                           ; payload tag
 00 80                                           ; length
 3d 3d 3d 3d 3d 3d 3d 3d 3d 3d 3d 3d 3d 3d 3d 3d ; value - '======'...
 3d 3d 3d 3d 3d 3d 3d 3d 3d 3d 3d 3d 3d 3d 3d 3d ; ...

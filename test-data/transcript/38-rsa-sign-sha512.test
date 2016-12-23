@@ -1,27 +1,27 @@
-01 00                                           ; version
-00 5e                                           ; length
+02 00                                           ; version
+00 62                                           ; length
 00 00 00 26                                     ; id
-11                                              ; opcode tag
-00 01                                           ; length
-07                                              ; rsa sign sha512
-04                                              ; ski tag
+00 11                                           ; opcode tag
+00 02                                           ; length
+00 07                                           ; rsa sign sha512
+00 04                                           ; ski tag
 00 14                                           ; length
 f8 8c 1f d9 90 bb 15 9e 26 a2 bb 3c 59 64 9f f5 ; value - ski of test-rsa-key.key
 69 ea da ad                                     ; ...
-12                                              ; payload tag
+00 12                                           ; payload tag
 00 40                                           ; length
 ee 26 b0 dd 4a f7 e7 49 aa 1a 8e e3 c1 0a e9 92 ; value - sha512 hash of 'test'
 3f 61 89 80 77 2e 47 3f 88 19 a5 d4 94 0e 0d b2 ; ...
 7a c1 85 f8 a0 e1 d5 f8 4f 88 bc 88 7f d6 7b 14 ; ...
 37 32 c3 04 cc 5f a9 ad 8e 6f 57 f5 00 28 a8 ff ; ...
 ---
-01 00                                           ; version
-00 87                                           ; length
+02 00                                           ; version
+00 8a                                           ; length
 00 00 00 26                                     ; id
-11                                              ; opcode tag
-00 01                                           ; length
-f0                                              ; response
-12                                              ; payload tag
+00 11                                           ; opcode tag
+00 02                                           ; length
+00 f0                                           ; response
+00 12                                           ; payload tag
 00 80                                           ; length
 35 96 c9 87 19 4d 8d 13 8d 14 ee e0 f0 14 53 4c ; value
 4d 01 c6 59 f7 bd 10 4f 07 c2 33 3c cc 53 0e ed ; ...
