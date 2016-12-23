@@ -150,7 +150,7 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 			errCode = err.Code
 		}
 
-		op.Payload = make([]byte, 2)
+		op.Payload = op.errorBuffer[:]
 		binary.BigEndian.PutUint16(op.Payload, uint16(errCode))
 	} else if op.Opcode == 0 {
 		op.Opcode = OpResponse

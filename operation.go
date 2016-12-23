@@ -31,6 +31,8 @@ type Operation struct {
 	OCSPResponse []byte
 
 	HasECDSACipher bool
+
+	errorBuffer [2]byte
 }
 
 func (op *Operation) String() string {
