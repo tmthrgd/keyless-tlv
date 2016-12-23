@@ -15,8 +15,9 @@ const (
 	ErrorInternal         Error = 0x0008 // Other internal error
 	ErrorCertNotFound     Error = 0x0009 // Certificate not found
 
+	ErrorNotAuthorised Error = 0x0101 // The client was not authorised to perform that request.
+
 	// The range [0xc000, 0xffff) is reserved for private errors.
-	ErrorNotAuthorised Error = 0xc000 // The client was not authorised to perform that request.
 )
 
 func (e Error) Error() string {
