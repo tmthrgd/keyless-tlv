@@ -98,6 +98,13 @@ func (op *Operation) Marshal(w Writer) {
 		w.Write(op.OCSPResponse)
 	}
 
+	if op.HasECDSACipher {
+		// ecdsa cipher tag
+		binary.Write(w, binary.BigEndian, uint16(TagECDSACipher))
+		binary.Write(w, binary.BigEndian, uint16(1))
+		w.WriteByte(0x01)
+	}
+
 	if op.Payload != nil {
 		// payload tag
 		binary.Write(w, binary.BigEndian, uint16(TagPayload))
