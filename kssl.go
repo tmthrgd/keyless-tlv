@@ -26,7 +26,11 @@ const (
 	HeaderLength1 = 8
 )
 
-var nilSig [ed25519.SignatureSize]byte
+var (
+	nilID     [8]byte
+	nilPubKey [ed25519.PublicKeySize]byte
+	nilSig    [ed25519.SignatureSize]byte
+)
 
 type RequestHandler struct {
 	sync.RWMutex
@@ -97,7 +101,13 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		}
 	}
 
-	h.RLock()
+	authority, authorityOk := ed25519.PublicKey(nil), false
+
+	if !h.V1 {
+		h.RLock()
+		authority, authorityOk = h.Authorities.Get(remAuthID[:])
+		h.RUnlock()
+	}
 
 	op := new(Operation)
 
@@ -107,8 +117,7 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		err = WrappedError{ErrorFormat, errors.New("invalid header length")}
 	} else if !h.V1 && !ed25519.Verify(remPublic[:], in[headerLength:], remSig[:]) {
 		err = WrappedError{ErrorNotAuthorised, errors.New("invalid signature")}
-	} else if authority, ok := h.Authorities.Get(remAuthID[:]); !h.V1 && !(ok &&
-		ed25519.Verify(authority, remPublic[:], remAuthSig[:])) {
+	} else if !h.V1 && !(authorityOk && ed25519.Verify(authority, remPublic[:], remAuthSig[:])) {
 		err = WrappedError{
 			Code: ErrorNotAuthorised,
 			Err:  fmt.Errorf("%s not authorised", PublicKey(remPublic[:])),
@@ -158,10 +167,10 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	binary.Write(b, binary.BigEndian, id)
 
 	if !h.V1 {
-		b.Write(h.Authority.ID)
-		b.Write(h.Authority.Signature)
-		b.Write(h.PublicKey)
-		b.Write(nilSig[:]) // signature placeholder
+		b.Write(nilID[:])     // auth id placeholder
+		b.Write(nilSig[:])    // auth signature placeholder
+		b.Write(nilPubKey[:]) // public key placeholder
+		b.Write(nilSig[:])    // signature placeholder
 	}
 
 	op.Marshal(b)
@@ -170,11 +179,19 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	binary.BigEndian.PutUint16(out[2:], uint16(b.Len()-headerLength))
 
 	if !h.V1 {
-		locSig := ed25519.Sign(h.PrivateKey, out[headerLength:])
-		copy(out[headerLength-ed25519.SignatureSize:headerLength], locSig)
-	}
+		h.RLock()
 
-	h.RUnlock()
+		copy(out[8:], h.Authority.ID)
+		copy(out[16:], h.Authority.Signature)
+		copy(out[16+ed25519.SignatureSize:], h.PublicKey)
+
+		priv := h.PrivateKey
+
+		h.RUnlock()
+
+		locSig := ed25519.Sign(priv, out[headerLength:])
+		copy(out[headerLength-ed25519.SignatureSize:], locSig)
+	}
 
 	log.Printf("id: %d, elapsed: %s, request: %s, response: %s", id, time.Since(start),
 		humanize.IBytes(uint64(len(in))), humanize.IBytes(uint64(len(out))))
