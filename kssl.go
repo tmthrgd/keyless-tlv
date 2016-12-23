@@ -32,7 +32,7 @@ var (
 type RequestHandler struct {
 	sync.RWMutex
 
-	GetCert func(op *Operation) (out []byte, ski SKI, err error)
+	GetCert func(op *Operation) (out []byte, ski SKI, OCSP []byte, err error)
 	GetKey  func(ski SKI) (priv crypto.Signer, err error)
 
 	PublicKey  PublicKey

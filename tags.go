@@ -15,6 +15,8 @@ const (
 	TagPayload  Tag = 0x0012 // Request/response payload
 	TagPadding  Tag = 0x0020 // Padding
 
+	TagOCSPResponse Tag = 0x0101 // The OCSP response to staple
+
 	// The range [0xc000, 0xffff) is reserved for private tags.
 	TagECDSACipher Tag = 0xc000 // One iff ECDSA ciphers are supported
 )

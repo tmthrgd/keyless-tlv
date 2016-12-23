@@ -29,6 +29,7 @@ type Operation struct {
 	SNI                []byte
 
 	HasECDSACipher bool
+	OCSPResponse   []byte
 }
 
 func (op *Operation) String() string {
@@ -87,6 +88,13 @@ func (op *Operation) Marshal(w Writer) {
 		w.WriteByte(byte(TagSigAlgs))
 		binary.Write(w, binary.BigEndian, uint16(len(op.SigAlgs)))
 		w.Write(op.SigAlgs)
+	}
+
+	if op.OCSPResponse != nil {
+		// ocsp response tag
+		binary.Write(w, binary.BigEndian, uint16(TagOCSPResponse))
+		binary.Write(w, binary.BigEndian, uint16(len(op.OCSPResponse)))
+		w.Write(op.OCSPResponse)
 	}
 
 	if op.Payload != nil {
@@ -195,6 +203,8 @@ func (op *Operation) Unmarshal(in []byte) error {
 			}
 
 			op.HasECDSACipher = data[0]&0x01 != 0
+		case TagOCSPResponse:
+			op.OCSPResponse = data
 		}
 	}
 

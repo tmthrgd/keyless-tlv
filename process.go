@@ -30,7 +30,7 @@ func (h *RequestHandler) process(in *Operation) (out *Operation, err error) {
 			return
 		}
 
-		out.Payload, out.SKI, err = h.GetCert(in)
+		out.Payload, out.SKI, out.OCSPResponse, err = h.GetCert(in)
 		return
 	case OpRSADecrypt, OpRSADecryptRaw:
 		if h.GetKey == nil {
