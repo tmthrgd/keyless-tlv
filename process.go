@@ -14,7 +14,7 @@ var (
 	rsaPSSOptsSHA512 = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA512}
 )
 
-func (h *RequestHandler) process(in *Operation) (out *Operation, err error) {
+func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 	out = new(Operation)
 
 	var opts crypto.SignerOpts

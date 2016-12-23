@@ -131,7 +131,7 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 			log.Printf("id: %d, key: %s, %v", id, PublicKey(remPublic[:]), op)
 		}
 
-		op, err = h.process(op)
+		op, err = h.Process(op)
 	}
 
 	if err != nil {
