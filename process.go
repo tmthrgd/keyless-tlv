@@ -8,6 +8,12 @@ import (
 	"errors"
 )
 
+var (
+	rsaPSSOptsSHA256 = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA256}
+	rsaPSSOptsSHA384 = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA384}
+	rsaPSSOptsSHA512 = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA512}
+)
+
 func (h *RequestHandler) process(in *Operation) (out *Operation, err error) {
 	out = new(Operation)
 
@@ -73,11 +79,11 @@ func (h *RequestHandler) process(in *Operation) (out *Operation, err error) {
 	case OpRSASignSHA512, OpECDSASignSHA512:
 		opts = crypto.SHA512
 	case OpRSAPSSSignSHA256:
-		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA256}
+		opts = rsaPSSOptsSHA256
 	case OpRSAPSSSignSHA384:
-		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA384}
+		opts = rsaPSSOptsSHA384
 	case OpRSAPSSSignSHA512:
-		opts = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA512}
+		opts = rsaPSSOptsSHA512
 	case OpPong, OpResponse, OpError:
 		err = WrappedError{ErrorUnexpectedOpcode, errors.New(in.Opcode.String())}
 		return
