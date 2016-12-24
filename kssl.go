@@ -123,6 +123,7 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		log.Printf("id: %d, %v", id, err)
 
 		op.FromError(err)
+		err = nil
 	}
 
 	if op.Opcode == 0 {
@@ -154,7 +155,7 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 
 	op.Marshal(b)
 
-	out, err = b.Bytes(), nil
+	out = b.Bytes()
 	binary.BigEndian.PutUint16(out[2:], uint16(b.Len()-headerLength))
 
 	if !h.NoSignature {
