@@ -102,15 +102,14 @@ func (a *Authorities) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
 		a.Unlock()
 	}
 
-	if hasKey && ok {
+	switch {
+	case hasKey && ok:
 		return nil
-	}
-
-	if a.Fallback != nil {
+	case a.Fallback != nil:
 		return a.Fallback(pub, op)
+	default:
+		return ErrorNotAuthorised
 	}
-
-	return ErrorNotAuthorised
 }
 
 func (a *Authorities) ReadFrom(path string) error {

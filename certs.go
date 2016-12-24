@@ -166,13 +166,11 @@ func (c *CertLoader) GetCertificate(op *Operation) (cert *Certificate, err error
 		cert, ok = c.skis[op.SKI]
 		c.RUnlock()
 
-		if ok {
-			return
-		}
-
-		if c.Fallback != nil {
+		switch {
+		case ok:
+		case c.Fallback != nil:
 			cert, err = c.Fallback(op)
-		} else {
+		default:
 			err = ErrorCertNotFound
 		}
 
@@ -218,35 +216,37 @@ func (c *CertLoader) GetCertificate(op *Operation) (cert *Certificate, err error
 	if !ok {
 		err = ErrorCertNotFound
 	} else if op.SigAlgs != nil {
-		if hasSHA256ECDSA && op.HasECDSACipher && certs.sha256ECDSA != nil {
+		switch {
+		case hasSHA256ECDSA && op.HasECDSACipher && certs.sha256ECDSA != nil:
 			cert = certs.sha256ECDSA
-		} else if hasSHA384ECDSA && op.HasECDSACipher && certs.sha384ECDSA != nil {
+		case hasSHA384ECDSA && op.HasECDSACipher && certs.sha384ECDSA != nil:
 			cert = certs.sha384ECDSA
-		} else if hasSHA256RSA && certs.sha256RSA != nil {
+		case hasSHA256RSA && certs.sha256RSA != nil:
 			cert = certs.sha256RSA
-		} else if hasSHA1RSA && certs.sha1RSA != nil {
+		case hasSHA1RSA && certs.sha1RSA != nil:
 			cert = certs.sha1RSA
-		} else if certs.sha256RSA != nil {
+		case certs.sha256RSA != nil:
 			cert = certs.sha256RSA
-		} else if certs.sha256ECDSA != nil {
+		case certs.sha256ECDSA != nil:
 			cert = certs.sha256ECDSA
-		} else if certs.sha384ECDSA != nil {
+		case certs.sha384ECDSA != nil:
 			cert = certs.sha384ECDSA
-		} else {
+		default:
 			err = ErrorCertNotFound
 		}
 	} else {
-		if op.SNI != nil && certs.sha256RSA != nil {
+		switch {
+		case op.SNI != nil && certs.sha256RSA != nil:
 			cert = certs.sha256RSA
-		} else if certs.sha1RSA != nil {
+		case certs.sha1RSA != nil:
 			cert = certs.sha1RSA
-		} else if certs.sha256RSA != nil {
+		case certs.sha256RSA != nil:
 			cert = certs.sha256RSA
-		} else if certs.sha256ECDSA != nil {
+		case certs.sha256ECDSA != nil:
 			cert = certs.sha256ECDSA
-		} else if certs.sha384ECDSA != nil {
+		case certs.sha384ECDSA != nil:
 			cert = certs.sha384ECDSA
-		} else {
+		default:
 			err = ErrorCertNotFound
 		}
 	}

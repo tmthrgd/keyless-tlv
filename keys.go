@@ -36,13 +36,11 @@ func (k *KeyLoader) GetKey(ski SKI) (priv crypto.Signer, err error) {
 	priv, ok := k.skis[ski]
 	k.RUnlock()
 
-	if ok {
-		return
-	}
-
-	if k.Fallback != nil {
+	switch {
+	case ok:
+	case k.Fallback != nil:
 		priv, err = k.Fallback(ski)
-	} else {
+	default:
 		err = ErrorKeyNotFound
 	}
 
