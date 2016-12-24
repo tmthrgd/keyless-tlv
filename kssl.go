@@ -100,6 +100,12 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		!ed25519.Verify(remPublic[:], in[headerLength:], remSig[:]) {
 		err = WrappedError{ErrorNotAuthorised, errors.New("invalid signature")}
 	} else if err = op.Unmarshal(in[headerLength:]); err == nil {
+		if h.NoSignature {
+			log.Printf("id: %d, %v", id, op)
+		} else {
+			log.Printf("id: %d, key: %s, %v", id, PublicKey(remPublic[:]), op)
+		}
+
 		if h.IsAuthorised != nil {
 			if h.NoSignature {
 				err = h.IsAuthorised(nil, op)
@@ -109,12 +115,6 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		}
 
 		if err == nil {
-			if h.NoSignature {
-				log.Printf("id: %d, %v", id, op)
-			} else {
-				log.Printf("id: %d, key: %s, %v", id, PublicKey(remPublic[:]), op)
-			}
-
 			op, err = h.Process(op)
 		}
 	}
