@@ -45,7 +45,7 @@ func GetSKI(pub crypto.PublicKey) (ski SKI, err error) {
 	case ed25519.PublicKey:
 		publicKeyBytes = pub
 	default:
-		err = errors.New("only RSA and ECDSA public keys supported")
+		err = errors.New("unsupported public key type")
 		return
 	}
 
