@@ -94,10 +94,7 @@ func (a *Authorities) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
 		return nil
 	}
 
-	return WrappedError{
-		Code: ErrorNotAuthorised,
-		Err:  fmt.Errorf("%s not authorised", PublicKey(pub)),
-	}
+	return ErrorNotAuthorised
 }
 
 func (a *Authorities) ReadFrom(path string) error {
