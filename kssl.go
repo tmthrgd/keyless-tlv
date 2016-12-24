@@ -14,6 +14,16 @@ import (
 	humanize "github.com/dustin/go-humanize"
 )
 
+type Certificate struct {
+	Payload []byte
+	SKI     SKI
+	OCSP    []byte
+}
+
+type GetCertFunc func(op *Operation) (cert *Certificate, err error)
+type GetKeyFunc func(ski SKI) (priv crypto.Signer, err error)
+type IsAuthorisedFunc func(pub ed25519.PublicKey, op *Operation) error
+
 const (
 	VersionMajor = 2
 	VersionMinor = 0
@@ -25,15 +35,15 @@ const (
 var nilSig [ed25519.SignatureSize]byte
 
 type RequestHandler struct {
-	GetCert func(op *Operation) (out []byte, ski SKI, OCSP []byte, err error)
-	GetKey  func(ski SKI) (priv crypto.Signer, err error)
+	GetCert GetCertFunc
+	GetKey  GetKeyFunc
 
 	sync.RWMutex
 	PublicKey     PublicKey
 	PrivateKey    ed25519.PrivateKey
 	Authorisation []byte
 
-	IsAuthorised func(pub ed25519.PublicKey, op *Operation) error
+	IsAuthorised IsAuthorisedFunc
 
 	NoSignature bool
 }

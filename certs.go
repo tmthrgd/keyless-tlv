@@ -17,31 +17,26 @@ import (
 	"github.com/cloudflare/cfssl/helpers"
 )
 
-type cert struct {
-	ski     SKI
-	payload []byte
-}
-
 type certMap struct {
-	sha1RSA, sha256RSA, sha256ECDSA, sha384ECDSA *cert
+	sha1RSA, sha256RSA, sha256ECDSA, sha384ECDSA *Certificate
 }
 
 type CertLoader struct {
 	sync.RWMutex
-	skis      map[SKI]*cert
+	skis      map[SKI]*Certificate
 	snis      map[string]certMap
 	serverIPs map[string]certMap
 }
 
 func NewCertLoader() *CertLoader {
 	return &CertLoader{
-		skis:      make(map[SKI]*cert),
+		skis:      make(map[SKI]*Certificate),
 		snis:      make(map[string]certMap),
 		serverIPs: make(map[string]certMap),
 	}
 }
 
-func addCertToMap(m map[string]certMap, key string, cert *cert, leaf *x509.Certificate) {
+func addCertToMap(m map[string]certMap, key string, cert *Certificate, leaf *x509.Certificate) {
 	certs := m[key]
 
 	switch leaf.SignatureAlgorithm {
@@ -114,9 +109,9 @@ func (c *CertLoader) walker(path string, info os.FileInfo, err error) error {
 		b.Write(x509.Raw)
 	}
 
-	cert := &cert{
-		ski:     ski,
-		payload: b.Bytes(),
+	cert := &Certificate{
+		Payload: b.Bytes(),
+		SKI:     ski,
 	}
 
 	c.Lock()
@@ -161,17 +156,18 @@ const (
 	sslED448   = 0x0808
 )
 
-func (c *CertLoader) GetCertificate(op *Operation) (out []byte, outSKI SKI, outOCSP []byte, err error) {
+func (c *CertLoader) GetCertificate(op *Operation) (cert *Certificate, err error) {
+	var ok bool
+
 	if op.SKI.Valid() {
 		c.RLock()
+		cert, ok = c.skis[op.SKI]
+		c.RUnlock()
 
-		if cert, ok := c.skis[op.SKI]; ok {
-			out, outSKI = cert.payload, cert.ski
-		} else {
+		if !ok {
 			err = ErrorCertNotFound
 		}
 
-		c.RUnlock()
 		return
 	}
 
@@ -209,34 +205,34 @@ func (c *CertLoader) GetCertificate(op *Operation) (out []byte, outSKI SKI, outO
 	if !ok {
 		err = ErrorCertNotFound
 	} else if op.SigAlgs != nil {
-		if cert := certs.sha256ECDSA; hasSHA256ECDSA && op.HasECDSACipher && cert != nil {
-			out, outSKI = cert.payload, cert.ski
-		} else if cert := certs.sha384ECDSA; hasSHA384ECDSA && op.HasECDSACipher && cert != nil {
-			out, outSKI = cert.payload, cert.ski
-		} else if cert := certs.sha256RSA; hasSHA256RSA && cert != nil {
-			out, outSKI = cert.payload, cert.ski
-		} else if cert := certs.sha1RSA; hasSHA1RSA && cert != nil {
-			out, outSKI = cert.payload, cert.ski
-		} else if cert := certs.sha256RSA; cert != nil {
-			out, outSKI = cert.payload, cert.ski
-		} else if cert := certs.sha256ECDSA; cert != nil {
-			out, outSKI = cert.payload, cert.ski
-		} else if cert := certs.sha384ECDSA; cert != nil {
-			out, outSKI = cert.payload, cert.ski
+		if hasSHA256ECDSA && op.HasECDSACipher && certs.sha256ECDSA != nil {
+			cert = certs.sha256ECDSA
+		} else if hasSHA384ECDSA && op.HasECDSACipher && certs.sha384ECDSA != nil {
+			cert = certs.sha384ECDSA
+		} else if hasSHA256RSA && certs.sha256RSA != nil {
+			cert = certs.sha256RSA
+		} else if hasSHA1RSA && certs.sha1RSA != nil {
+			cert = certs.sha1RSA
+		} else if certs.sha256RSA != nil {
+			cert = certs.sha256RSA
+		} else if certs.sha256ECDSA != nil {
+			cert = certs.sha256ECDSA
+		} else if certs.sha384ECDSA != nil {
+			cert = certs.sha384ECDSA
 		} else {
 			err = ErrorCertNotFound
 		}
 	} else {
-		if cert := certs.sha256RSA; op.SNI != nil && cert != nil {
-			out, outSKI = cert.payload, cert.ski
-		} else if cert := certs.sha1RSA; cert != nil {
-			out, outSKI = cert.payload, cert.ski
-		} else if cert := certs.sha256RSA; cert != nil {
-			out, outSKI = cert.payload, cert.ski
-		} else if cert := certs.sha256ECDSA; cert != nil {
-			out, outSKI = cert.payload, cert.ski
-		} else if cert := certs.sha384ECDSA; cert != nil {
-			out, outSKI = cert.payload, cert.ski
+		if op.SNI != nil && certs.sha256RSA != nil {
+			cert = certs.sha256RSA
+		} else if certs.sha1RSA != nil {
+			cert = certs.sha1RSA
+		} else if certs.sha256RSA != nil {
+			cert = certs.sha256RSA
+		} else if certs.sha256ECDSA != nil {
+			cert = certs.sha256ECDSA
+		} else if certs.sha384ECDSA != nil {
+			cert = certs.sha384ECDSA
 		} else {
 			err = ErrorCertNotFound
 		}

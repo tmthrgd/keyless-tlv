@@ -38,7 +38,11 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 			return
 		}
 
-		out.Payload, out.SKI, out.OCSPResponse, err = h.GetCert(in)
+		var cert *Certificate
+		if cert, err = h.GetCert(in); err == nil {
+			out.Payload, out.SKI, out.OCSPResponse = cert.Payload, cert.SKI, cert.OCSP
+		}
+
 		return
 	case OpRSADecrypt, OpRSADecryptRaw:
 		if h.GetKey == nil {
