@@ -5,7 +5,6 @@
 package main
 
 import (
-	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -58,5 +57,5 @@ func (ski SKI) String() string {
 }
 
 func (ski SKI) Valid() bool {
-	return !bytes.Equal(ski[:], nilSKI[:])
+	return ski != nilSKI
 }
