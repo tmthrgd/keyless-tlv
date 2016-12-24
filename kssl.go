@@ -122,22 +122,10 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	if err != nil {
 		log.Printf("id: %d, %v", id, err)
 
-		*op = Operation{
-			Opcode:  OpError,
-			Payload: op.errorBuffer[:],
-		}
+		op.FromError(err)
+	}
 
-		errCode := ErrorInternal
-
-		switch err := err.(type) {
-		case Error:
-			errCode = err
-		case WrappedError:
-			errCode = err.Code
-		}
-
-		binary.BigEndian.PutUint16(op.Payload, uint16(errCode))
-	} else if op.Opcode == 0 {
+	if op.Opcode == 0 {
 		op.Opcode = OpResponse
 	}
 

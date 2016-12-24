@@ -230,3 +230,21 @@ func (op *Operation) Unmarshal(in []byte) error {
 
 	return nil
 }
+
+func (op *Operation) FromError(err error) {
+	*op = Operation{
+		Opcode:  OpError,
+		Payload: op.errorBuffer[:],
+	}
+
+	errCode := ErrorInternal
+
+	switch err := err.(type) {
+	case Error:
+		errCode = err
+	case WrappedError:
+		errCode = err.Code
+	}
+
+	binary.BigEndian.PutUint16(op.Payload, uint16(errCode))
+}
