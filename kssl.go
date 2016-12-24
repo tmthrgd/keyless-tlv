@@ -36,7 +36,7 @@ type RequestHandler struct {
 	GetKey  GetKeyFunc
 
 	sync.RWMutex
-	PublicKey     PublicKey
+	PublicKey     ed25519.PublicKey
 	PrivateKey    ed25519.PrivateKey
 	Authorisation []byte
 
@@ -74,7 +74,7 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		if h.NoSignature {
 			log.Printf("id: %d, %v", hdr.ID, op)
 		} else {
-			log.Printf("id: %d, key: %s, %v", hdr.ID, PublicKey(hdr.PublicKey), op)
+			log.Printf("id: %d, key: %s, %v", hdr.ID, publicKeyString(hdr.PublicKey), op)
 		}
 
 		if h.IsAuthorised != nil {
@@ -105,7 +105,7 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 
 	if !h.NoSignature {
 		h.RLock()
-		hdr.PublicKey, privKey = ed25519.PublicKey(h.PublicKey), h.PrivateKey
+		hdr.PublicKey, privKey = h.PublicKey, h.PrivateKey
 		op.Authorisation = h.Authorisation
 		h.RUnlock()
 	}

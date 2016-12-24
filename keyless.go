@@ -116,11 +116,12 @@ func main() {
 				panic(err)
 			}
 
-			log.Printf("listening on %s with key %s\n", addr, handler.PublicKey)
+			log.Printf("listening on %s with key %s\n", addr,
+				publicKeyString(handler.PublicKey))
 		}
 	}()
 
-	log.Printf("listening on %s with key %s\n", addr, handler.PublicKey)
+	log.Printf("listening on %s with key %s\n", addr, publicKeyString(handler.PublicKey))
 
 	for {
 		buf := bufferPool.Get().([]byte)
