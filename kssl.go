@@ -101,15 +101,16 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		op.Opcode = OpResponse
 	}
 
+	var privKey ed25519.PrivateKey
+
 	if !h.NoSignature {
 		h.RLock()
-		hdr.PublicKey = ed25519.PublicKey(h.PublicKey)
-		hdr.PrivateKey = h.PrivateKey
+		hdr.PublicKey, privKey = ed25519.PublicKey(h.PublicKey), h.PrivateKey
 		op.Authorisation = h.Authorisation
 		h.RUnlock()
 	}
 
-	out = hdr.Marshal(op, in[:0])
+	out = hdr.Marshal(op, privKey, in[:0])
 
 	log.Printf("id: %d, elapsed: %s, request: %s, response: %s", hdr.ID, time.Since(start),
 		humanize.IBytes(uint64(len(in))), humanize.IBytes(uint64(len(out))))

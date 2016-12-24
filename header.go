@@ -17,15 +17,13 @@ type Header struct {
 	PublicKey ed25519.PublicKey
 	Signature []byte
 
-	PrivateKey ed25519.PrivateKey
-
 	pubBuffer [ed25519.PublicKeySize]byte
 	sigBuffer [ed25519.SignatureSize]byte
 
 	NoSignature bool
 }
 
-func (h *Header) Marshal(op *Operation, buf []byte) []byte {
+func (h *Header) Marshal(op *Operation, priv ed25519.PrivateKey, buf []byte) []byte {
 	b := bytes.NewBuffer(buf)
 	b.Grow(PadTo + 3)
 
@@ -48,7 +46,7 @@ func (h *Header) Marshal(op *Operation, buf []byte) []byte {
 	} else {
 		binary.BigEndian.PutUint16(out[2:], uint16(b.Len()-HeaderLength))
 
-		locSig := ed25519.Sign(h.PrivateKey, out[HeaderLength:])
+		locSig := ed25519.Sign(priv, out[HeaderLength:])
 		copy(out[HeaderLength-ed25519.SignatureSize:], locSig)
 	}
 
