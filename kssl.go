@@ -63,33 +63,40 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		headerLength = HeaderLengthNoSignature
 	}
 
-	if hdr.Major != VersionMajor {
+	switch {
+	case hdr.Major != VersionMajor:
 		err = ErrorVersionMismatch
-	} else if int(hdr.Length) != r.Len() {
+	case int(hdr.Length) != r.Len():
 		err = WrappedError{ErrorFormat, errors.New("invalid header length")}
-	} else if !h.NoSignature &&
-		!ed25519.Verify(hdr.PublicKey, in[HeaderLength:], hdr.Signature) {
+	case !h.NoSignature && !ed25519.Verify(hdr.PublicKey, in[HeaderLength:], hdr.Signature):
 		err = WrappedError{ErrorNotAuthorised, errors.New("invalid signature")}
-	} else if err = op.Unmarshal(in[headerLength:]); err == nil {
+	default:
+		err = op.Unmarshal(in[headerLength:])
+	}
+
+	if err != nil {
+		goto handleError
+	}
+
+	if h.NoSignature {
+		log.Printf("id: %d, %v", hdr.ID, op)
+	} else {
+		log.Printf("id: %d, key: %s, %v", hdr.ID, publicKeyString(hdr.PublicKey), op)
+	}
+
+	if h.IsAuthorised != nil {
 		if h.NoSignature {
-			log.Printf("id: %d, %v", hdr.ID, op)
+			err = h.IsAuthorised(nil, op)
 		} else {
-			log.Printf("id: %d, key: %s, %v", hdr.ID, publicKeyString(hdr.PublicKey), op)
-		}
-
-		if h.IsAuthorised != nil {
-			if h.NoSignature {
-				err = h.IsAuthorised(nil, op)
-			} else {
-				err = h.IsAuthorised(hdr.PublicKey, op)
-			}
-		}
-
-		if err == nil {
-			op, err = h.Process(op)
+			err = h.IsAuthorised(hdr.PublicKey, op)
 		}
 	}
 
+	if err == nil {
+		op, err = h.Process(op)
+	}
+
+handleError:
 	if err != nil {
 		log.Printf("id: %d, %v", hdr.ID, err)
 
