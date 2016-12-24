@@ -25,11 +25,10 @@ const (
 var nilSig [ed25519.SignatureSize]byte
 
 type RequestHandler struct {
-	sync.RWMutex
-
 	GetCert func(op *Operation) (out []byte, ski SKI, OCSP []byte, err error)
 	GetKey  func(ski SKI) (priv crypto.Signer, err error)
 
+	sync.RWMutex
 	PublicKey     PublicKey
 	PrivateKey    ed25519.PrivateKey
 	Authorisation []byte
@@ -132,8 +131,6 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		op.Opcode = OpResponse
 	}
 
-	op.Authorisation = h.Authorisation
-
 	b := bytes.NewBuffer(in[:0])
 	b.Grow(PadTo + 3)
 
@@ -151,6 +148,8 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		b.Write(nilSig[:]) // signature placeholder
 
 		privKey = h.PrivateKey
+
+		op.Authorisation = h.Authorisation
 
 		h.RUnlock()
 	}
