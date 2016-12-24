@@ -82,11 +82,7 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		}
 
 		if h.IsAuthorised != nil {
-			if h.NoSignature {
-				err = h.IsAuthorised(nil, op)
-			} else {
-				err = h.IsAuthorised(hdr.PublicKey, op)
-			}
+			err = h.IsAuthorised(hdr.PublicKey, op)
 		}
 
 		if err == nil {
