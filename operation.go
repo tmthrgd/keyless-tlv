@@ -37,13 +37,8 @@ type Operation struct {
 }
 
 func (op *Operation) String() string {
-	var ski []byte
-	if op.SKI.Valid() {
-		ski = op.SKI[:]
-	}
-
-	return fmt.Sprintf("Opcode: %s, SKI: %02x, Client IP: %s, Server IP: %s, SNI: %s, SigAlgs: %02x, ECDSA: %t",
-		op.Opcode, ski, op.ClientIP, op.ServerIP, op.SNI, op.SigAlgs, op.HasECDSACipher)
+	return fmt.Sprintf("Opcode: %s, SKI: %s, Client IP: %s, Server IP: %s, SNI: %s, SigAlgs: %02x, ECDSA: %t",
+		op.Opcode, op.SKI, op.ClientIP, op.ServerIP, op.SNI, op.SigAlgs, op.HasECDSACipher)
 }
 
 type Writer interface {

@@ -53,6 +53,10 @@ func GetSKI(pub crypto.PublicKey) (ski SKI, err error) {
 }
 
 func (ski SKI) String() string {
+	if ski == nilSKI {
+		return "<nil>"
+	}
+
 	return hex.EncodeToString(ski[:])
 }
 
