@@ -1,0 +1,16 @@
+02 00       ; version
+00 08       ; length
+00 00 00 31 ; id
+01 02       ; opcode tag
+00 04       ; length
+64 65 6e 79 ; value - 'deny'
+---
+02 00       ; version
+00 0c       ; length
+00 00 00 31 ; id
+00 11       ; opcode tag
+00 02       ; length
+00 ff       ; error
+00 12       ; payload tag
+00 02       ; length
+01 01       ; client not authorised

@@ -19,6 +19,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"golang.org/x/crypto/ed25519"
 )
 
 func init() {
@@ -35,6 +37,14 @@ func (w *loggerWriter) Write(p []byte) (n int, err error) {
 	p = bytes.TrimRight(p, "\r\n")
 	w.Log(string(p))
 	return
+}
+
+func isAuthorised(pub ed25519.PublicKey, op *Operation) error {
+	if bytes.Equal(op.Authorisation, []byte("deny")) {
+		return ErrorNotAuthorised
+	}
+
+	return nil
 }
 
 func TestRunner(t *testing.T) {
@@ -66,6 +76,8 @@ func runner(tb testing.TB) {
 	handler := &RequestHandler{
 		GetCert: certs.GetCertificate,
 		GetKey:  keys.GetKey,
+
+		IsAuthorised: isAuthorised,
 
 		NoSignature: true,
 	}
@@ -251,6 +263,8 @@ func signing(tb testing.TB) {
 	handler := &RequestHandler{
 		GetCert: certs.GetCertificate,
 		GetKey:  keys.GetKey,
+
+		IsAuthorised: isAuthorised,
 
 		NoSignature: true,
 	}
