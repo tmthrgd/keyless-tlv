@@ -45,7 +45,7 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 
 		return
 	case OpRSADecrypt, OpRSADecryptRaw:
-		if h.GetKey == nil {
+		if h.GetKey == nil || !in.SKI.Valid() {
 			err = ErrorKeyNotFound
 			return
 		}
@@ -102,7 +102,7 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 		return
 	}
 
-	if h.GetKey == nil {
+	if h.GetKey == nil || !in.SKI.Valid() {
 		err = ErrorKeyNotFound
 		return
 	}
