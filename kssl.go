@@ -74,29 +74,26 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		err = op.Unmarshal(in[headerLength:])
 	}
 
-	if err != nil {
-		goto handleError
-	}
-
-	if h.NoSignature {
-		log.Printf("id: %d, %v", hdr.ID, op)
-	} else {
-		log.Printf("id: %d, key: %s, %v", hdr.ID, publicKeyString(hdr.PublicKey), op)
-	}
-
-	if h.IsAuthorised != nil {
+	if err == nil {
 		if h.NoSignature {
-			err = h.IsAuthorised(nil, op)
+			log.Printf("id: %d, %v", hdr.ID, op)
 		} else {
-			err = h.IsAuthorised(hdr.PublicKey, op)
+			log.Printf("id: %d, key: %s, %v", hdr.ID, publicKeyString(hdr.PublicKey), op)
+		}
+
+		if h.IsAuthorised != nil {
+			if h.NoSignature {
+				err = h.IsAuthorised(nil, op)
+			} else {
+				err = h.IsAuthorised(hdr.PublicKey, op)
+			}
+		}
+
+		if err == nil {
+			op, err = h.Process(op)
 		}
 	}
 
-	if err == nil {
-		op, err = h.Process(op)
-	}
-
-handleError:
 	if err != nil {
 		log.Printf("id: %d, %v", hdr.ID, err)
 
