@@ -11,7 +11,7 @@ import (
 	"sync"
 	"syscall"
 
-	reuseport "github.com/jbenet/go-reuseport"
+	"github.com/jbenet/go-reuseport"
 )
 
 var bufferPool = &sync.Pool{

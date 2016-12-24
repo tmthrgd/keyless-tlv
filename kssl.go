@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/crypto/ed25519"
 
-	humanize "github.com/dustin/go-humanize"
+	"github.com/dustin/go-humanize"
 )
 
 type Certificate struct {
