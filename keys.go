@@ -21,6 +21,8 @@ var keyExt = regexp.MustCompile(`.+\.key`)
 type KeyLoader struct {
 	sync.RWMutex
 	skis map[SKI]crypto.Signer
+
+	Fallback GetKeyFunc
 }
 
 func NewKeyLoader() *KeyLoader {
@@ -38,7 +40,13 @@ func (k *KeyLoader) GetKey(ski SKI) (priv crypto.Signer, err error) {
 		k.RUnlock()
 	}
 
-	if !ok {
+	if ok {
+		return
+	}
+
+	if k.Fallback != nil {
+		priv, err = k.Fallback(ski)
+	} else {
 		err = ErrorKeyNotFound
 	}
 

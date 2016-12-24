@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -26,6 +27,8 @@ type Authorities struct {
 	m map[string]ed25519.PublicKey
 
 	cache map[authCacheKey]bool
+
+	Fallback IsAuthorisedFunc
 }
 
 func NewAuthorities() *Authorities {
@@ -53,10 +56,19 @@ func (a *Authorities) Remove(publicKey ed25519.PublicKey) {
 
 func (a *Authorities) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
 	if len(pub) == 0 {
-		panic("request does not have a signature")
+		if a.Fallback != nil {
+			return a.Fallback(pub, op)
+		}
+
+		return WrappedError{ErrorNotAuthorised,
+			errors.New("request does not have a signature")}
 	}
 
 	if len(op.Authorisation) != 8+ed25519.SignatureSize {
+		if a.Fallback != nil {
+			return a.Fallback(pub, op)
+		}
+
 		return WrappedError{ErrorFormat, fmt.Errorf("%s should be %d bytes, was %d bytes",
 			TagAuthorisation, 8+ed25519.SignatureSize, len(op.Authorisation))}
 	}
@@ -92,6 +104,10 @@ func (a *Authorities) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
 
 	if hasKey && ok {
 		return nil
+	}
+
+	if a.Fallback != nil {
+		return a.Fallback(pub, op)
 	}
 
 	return ErrorNotAuthorised
