@@ -107,6 +107,8 @@ func (c *CertLoader) walker(path string, info os.FileInfo, err error) error {
 	var b bytes.Buffer
 
 	for _, x509 := range x509s {
+		b.Grow(2 + len(x509.Raw))
+
 		binary.Write(&b, binary.BigEndian, uint16(len(x509.Raw)))
 		b.Write(x509.Raw)
 	}
