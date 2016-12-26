@@ -84,7 +84,7 @@ func (op *Operation) Marshal(w Writer) {
 
 	if op.SigAlgs != nil {
 		// signature algorithms tag
-		w.WriteByte(byte(TagSigAlgs))
+		binary.Write(w, binary.BigEndian, uint16(TagSigAlgs))
 		binary.Write(w, binary.BigEndian, uint16(len(op.SigAlgs)))
 		w.Write(op.SigAlgs)
 	}
