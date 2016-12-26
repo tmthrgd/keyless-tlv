@@ -43,7 +43,6 @@ func (op *Operation) String() string {
 
 type Writer interface {
 	io.Writer
-	io.ByteWriter
 
 	Len() int
 }
@@ -107,7 +106,7 @@ func (op *Operation) Marshal(w Writer) {
 		// ecdsa cipher tag
 		binary.Write(w, binary.BigEndian, uint16(TagECDSACipher))
 		binary.Write(w, binary.BigEndian, uint16(1))
-		w.WriteByte(0x01)
+		w.Write([]byte{0x01})
 	}
 
 	if op.Payload != nil {
