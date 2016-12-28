@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+var serialNumberMax = new(big.Int).Lsh(big.NewInt(1), 128)
+
 type SelfSigner struct {
 	sync.RWMutex
 	keys  map[SKI]crypto.Signer
@@ -106,7 +108,7 @@ func (ss *SelfSigner) GetCertificate(op *Operation) (cert *Certificate, err erro
 }
 
 func (ss *SelfSigner) generateCertificate(sni []byte) (err error) {
-	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	serialNumber, err := rand.Int(rand.Reader, serialNumberMax)
 	if err != nil {
 		return
 	}
