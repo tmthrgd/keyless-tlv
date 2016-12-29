@@ -90,9 +90,9 @@ func (ss *SelfSigner) GetCertificate(op *Operation) (cert *Certificate, err erro
 	ss.Unlock()
 
 	once.Do(func() {
-		err = ss.generateCertificate(op.SNI)
+		cert, err = ss.generateCertificate(op.SNI)
 	})
-	if err != nil {
+	if cert != nil || err != nil {
 		return
 	}
 
@@ -107,7 +107,7 @@ func (ss *SelfSigner) GetCertificate(op *Operation) (cert *Certificate, err erro
 	return
 }
 
-func (ss *SelfSigner) generateCertificate(sni []byte) (err error) {
+func (ss *SelfSigner) generateCertificate(sni []byte) (cert *Certificate, err error) {
 	serialNumber, err := rand.Int(rand.Reader, serialNumberMax)
 	if err != nil {
 		return
@@ -152,7 +152,7 @@ func (ss *SelfSigner) generateCertificate(sni []byte) (err error) {
 		return
 	}
 
-	cert := &Certificate{
+	cert = &Certificate{
 		Payload: make([]byte, 2+len(der)),
 		SKI:     ski,
 	}
