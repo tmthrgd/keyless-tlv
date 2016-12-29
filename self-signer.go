@@ -101,7 +101,7 @@ func (ss *SelfSigner) GetCertificate(op *Operation) (cert *Certificate, err erro
 	ss.RUnlock()
 
 	if !ok {
-		err = ErrorCertNotFound
+		err = ErrorInternal
 	}
 
 	return
