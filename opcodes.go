@@ -1,4 +1,4 @@
-package main
+package keyless
 
 //go:generate stringer -type=Op -output=opcodes_string.go
 

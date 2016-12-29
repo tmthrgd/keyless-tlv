@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/jbenet/go-reuseport"
+	"github.com/tmthrgd/keyless"
 )
 
 var bufferPool = &sync.Pool{
@@ -66,9 +67,9 @@ func main() {
 		}
 	}
 
-	keys := NewKeyLoader()
-	certs := NewCertLoader()
-	auths := NewAuthorities()
+	keys := keyless.NewKeyLoader()
+	certs := keyless.NewCertLoader()
+	auths := keyless.NewAuthorities()
 
 	if err = keys.LoadFromDir(dir); err != nil {
 		panic(err)
@@ -82,7 +83,7 @@ func main() {
 		panic(err)
 	}
 
-	handler := &RequestHandler{
+	handler := &keyless.RequestHandler{
 		GetCert: certs.GetCertificate,
 		GetKey:  keys.GetKey,
 

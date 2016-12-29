@@ -1,4 +1,4 @@
-package keyless
+package main
 
 import (
 	"encoding/base64"

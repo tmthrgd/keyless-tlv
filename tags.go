@@ -1,4 +1,4 @@
-package main
+package keyless
 
 //go:generate stringer -type=Tag -output=tags_string.go
 

@@ -4,7 +4,7 @@
 
 // Taken from src/crypto/rsa/rsa.go
 
-package main
+package keyless
 
 import (
 	"crypto/rand"
