@@ -123,6 +123,8 @@ func (a *Authorities) ReadFrom(path string) error {
 		return err
 	}
 
+	defer f.Close()
+
 	var dst [ed25519.PublicKeySize]byte
 
 	s := bufio.NewScanner(f)
