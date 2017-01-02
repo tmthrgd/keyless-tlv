@@ -143,6 +143,8 @@ func parseTestCase(path string) (request, response []byte, err error) {
 		return
 	}
 
+	defer f.Close()
+
 	var req, resp bytes.Buffer
 	var isResp bool
 
