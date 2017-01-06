@@ -173,7 +173,10 @@ func parseTestCase(path string) (request, response []byte, err error) {
 				return
 			}
 
-			i++
+			if i++; i == len(data) {
+				err = errors.New("invalid format: expected hex or space, got EOF")
+				return
+			}
 
 			b, _, ok := fromHexChar(data[i])
 			if !ok {
