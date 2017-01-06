@@ -85,7 +85,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := auths.ReadFrom(authoritiesPath); err != nil {
+	if err = auths.ReadFrom(authoritiesPath); err != nil {
 		panic(err)
 	}
 
@@ -96,7 +96,7 @@ func main() {
 		IsAuthorised: auths.IsAuthorised,
 	}
 
-	if err := handler.ReadKeyFile(keyfilePath); err != nil {
+	if err = handler.ReadKeyFile(keyfilePath); err != nil {
 		panic(err)
 	}
 
