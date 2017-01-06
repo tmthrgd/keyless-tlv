@@ -23,6 +23,86 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+func fromHexChar(c byte) (b byte, skip bool, ok bool) {
+	switch {
+	case '0' <= c && c <= '9':
+		return c - '0', false, true
+	case 'a' <= c && c <= 'f':
+		return c - 'a' + 10, false, true
+	case 'A' <= c && c <= 'F':
+		return c - 'A' + 10, false, true
+	case c == ' ' || c == '\t':
+		return 0, true, false
+	}
+
+	return 0, false, false
+}
+
+func parseTestCase(path string) (request, response []byte, err error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return
+	}
+
+	defer f.Close()
+
+	var req, resp bytes.Buffer
+	var isResp bool
+
+	scanner := bufio.NewScanner(f)
+
+	for scanner.Scan() {
+		data := scanner.Bytes()
+
+		if bytes.Equal(data, []byte{'-', '-', '-'}) {
+			if isResp {
+				err = errors.New("invalid format: already in response")
+				return
+			}
+
+			isResp = true
+			continue
+		}
+
+		if i := bytes.IndexByte(data, ';'); i != -1 {
+			data = data[:i]
+		}
+
+		for i := 0; i < len(data); i++ {
+			a, skip, ok := fromHexChar(data[i])
+			if skip {
+				continue
+			} else if !ok {
+				err = fmt.Errorf("invalid format: expected hex or space, got %c", data[i])
+				return
+			}
+
+			if i++; i == len(data) {
+				err = errors.New("invalid format: expected hex or space, got EOF")
+				return
+			}
+
+			b, _, ok := fromHexChar(data[i])
+			if !ok {
+				err = fmt.Errorf("invalid format: expected hex, got %c", data[i])
+				return
+			}
+
+			if isResp {
+				resp.WriteByte((a << 4) | b)
+			} else {
+				req.WriteByte((a << 4) | b)
+			}
+		}
+	}
+
+	if err = scanner.Err(); err != nil {
+		return
+	}
+
+	return req.Bytes(), resp.Bytes(), nil
+}
+
 type loggerWriter struct {
 	testing.TB
 }
@@ -117,86 +197,6 @@ func runner(tb testing.TB) {
 	}); err != nil {
 		tb.Error(err)
 	}
-}
-
-func fromHexChar(c byte) (b byte, skip bool, ok bool) {
-	switch {
-	case '0' <= c && c <= '9':
-		return c - '0', false, true
-	case 'a' <= c && c <= 'f':
-		return c - 'a' + 10, false, true
-	case 'A' <= c && c <= 'F':
-		return c - 'A' + 10, false, true
-	case c == ' ' || c == '\t':
-		return 0, true, false
-	}
-
-	return 0, false, false
-}
-
-func parseTestCase(path string) (request, response []byte, err error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return
-	}
-
-	defer f.Close()
-
-	var req, resp bytes.Buffer
-	var isResp bool
-
-	scanner := bufio.NewScanner(f)
-
-	for scanner.Scan() {
-		data := scanner.Bytes()
-
-		if bytes.Equal(data, []byte{'-', '-', '-'}) {
-			if isResp {
-				err = errors.New("invalid format: already in response")
-				return
-			}
-
-			isResp = true
-			continue
-		}
-
-		if i := bytes.IndexByte(data, ';'); i != -1 {
-			data = data[:i]
-		}
-
-		for i := 0; i < len(data); i++ {
-			a, skip, ok := fromHexChar(data[i])
-			if skip {
-				continue
-			} else if !ok {
-				err = fmt.Errorf("invalid format: expected hex or space, got %c", data[i])
-				return
-			}
-
-			if i++; i == len(data) {
-				err = errors.New("invalid format: expected hex or space, got EOF")
-				return
-			}
-
-			b, _, ok := fromHexChar(data[i])
-			if !ok {
-				err = fmt.Errorf("invalid format: expected hex, got %c", data[i])
-				return
-			}
-
-			if isResp {
-				resp.WriteByte((a << 4) | b)
-			} else {
-				req.WriteByte((a << 4) | b)
-			}
-		}
-	}
-
-	if err = scanner.Err(); err != nil {
-		return
-	}
-
-	return req.Bytes(), resp.Bytes(), nil
 }
 
 func runTestCase(t *testing.T, path string, handler *RequestHandler) {
