@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"log"
@@ -13,12 +14,17 @@ import (
 
 	"github.com/jbenet/go-reuseport"
 	"github.com/tmthrgd/keyless"
+	"golang.org/x/crypto/ed25519"
 )
 
 var bufferPool = &sync.Pool{
 	New: func() interface{} {
 		return make([]byte, 0, 2*1024)
 	},
+}
+
+func publicKeyString(k ed25519.PublicKey) string {
+	return base64.RawStdEncoding.EncodeToString(k)
 }
 
 func init() {
