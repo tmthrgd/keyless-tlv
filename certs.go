@@ -204,6 +204,8 @@ func (c *CertLoader) GetCertificate(op *Operation) (cert *Certificate, err error
 		certs, ok = c.serverIPs[string(op.ServerIP)]
 	}
 
+	c.RUnlock()
+
 	if !ok {
 		err = ErrorCertNotFound
 	} else if op.SigAlgs != nil {
@@ -242,6 +244,5 @@ func (c *CertLoader) GetCertificate(op *Operation) (cert *Certificate, err error
 		}
 	}
 
-	c.RUnlock()
 	return
 }
