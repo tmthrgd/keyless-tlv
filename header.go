@@ -53,7 +53,7 @@ func (h *Header) Marshal(op *Operation, priv ed25519.PrivateKey, buf []byte) []b
 	return out
 }
 
-func (h *Header) Unmarshal(r *bytes.Reader) (err error) {
+func (h *Header) Unmarshal(r *bytes.Reader) (n int, err error) {
 	if h.Major, err = r.ReadByte(); err != nil {
 		return
 	}
@@ -71,7 +71,7 @@ func (h *Header) Unmarshal(r *bytes.Reader) (err error) {
 	}
 
 	if h.NoSignature {
-		return
+		return HeaderLengthNoSignature, nil
 	}
 
 	h.PublicKey, h.Signature = h.pubBuffer[:], h.sigBuffer[:]
@@ -80,6 +80,9 @@ func (h *Header) Unmarshal(r *bytes.Reader) (err error) {
 		return
 	}
 
-	_, err = r.Read(h.Signature)
-	return
+	if _, err = r.Read(h.Signature); err != nil {
+		return
+	}
+
+	return HeaderLength, nil
 }
