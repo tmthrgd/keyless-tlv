@@ -51,6 +51,10 @@ func (e Error) Error() string {
 	}
 }
 
+func (e Error) ErrorCode() Error {
+	return e
+}
+
 type WrappedError struct {
 	Code Error
 	Err  error
@@ -60,15 +64,22 @@ func (e WrappedError) Error() string {
 	return e.Code.Error() + ": " + e.Err.Error()
 }
 
+func (e WrappedError) ErrorCode() Error {
+	return e.Code
+}
+
 func getErrorCode(err error) Error {
-	switch err := err.(type) {
-	case nil:
+	if err == nil {
 		return 0
-	case Error:
-		return err
-	case WrappedError:
-		return err.Code
-	default:
-		return ErrorInternal
 	}
+
+	type errorCodeReturner interface {
+		ErrorCode() Error
+	}
+
+	if err, ok := err.(errorCodeReturner); ok {
+		return err.ErrorCode()
+	}
+
+	return ErrorInternal
 }
