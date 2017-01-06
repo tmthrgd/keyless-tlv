@@ -36,7 +36,6 @@ type ACMEClient struct {
 
 	client *acme.Client
 
-	HostPolicy func(sni []byte) (ok bool)
 	GetContext func(sni []byte) (ctx context.Context)
 	MustStaple func(sni []byte) bool
 }
@@ -97,9 +96,6 @@ func (ac *ACMEClient) GetCertificate(op *Operation) (cert *Certificate, err erro
 	case ok:
 		return
 	case bytes.HasSuffix(op.SNI, []byte(".acme.invalid")):
-		err = ErrorCertNotFound
-		return
-	case ac.HostPolicy != nil && !ac.HostPolicy(op.SNI):
 		err = ErrorCertNotFound
 		return
 	}
