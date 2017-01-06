@@ -13,12 +13,18 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/binary"
 	"errors"
 	"sync"
 
 	"golang.org/x/crypto/acme"
 	"golang.org/x/net/context"
+)
+
+var (
+	oidTLSFeature          = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 1, 24}
+	mustStapleFeatureValue = []byte{0x30, 0x03, 0x02, 0x01, 0x05}
 )
 
 type ACMEClient struct {
@@ -33,6 +39,7 @@ type ACMEClient struct {
 
 	HostPolicy func(sni []byte) (ok bool)
 	GetContext func(sni []byte) (ctx context.Context)
+	MustStaple func(sni []byte) bool
 }
 
 func NewACMEClient(client *acme.Client) *ACMEClient {
@@ -47,6 +54,9 @@ func NewACMEClient(client *acme.Client) *ACMEClient {
 
 		GetContext: func([]byte) context.Context {
 			return context.Background()
+		},
+		MustStaple: func([]byte) bool {
+			return false
 		},
 	}
 }
@@ -143,11 +153,20 @@ func (ac *ACMEClient) requestCertificate(sni []byte) (cert *Certificate, err err
 		return
 	}
 
-	csr, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{
+	req := &x509.CertificateRequest{
 		Subject: pkix.Name{
 			CommonName: string(sni),
 		},
-	}, priv)
+	}
+
+	if ac.MustStaple(sni) {
+		req.Extensions = append(req.Extensions, pkix.Extension{
+			Id:    oidTLSFeature,
+			Value: mustStapleFeatureValue,
+		})
+	}
+
+	csr, err := x509.CreateCertificateRequest(rand.Reader, req, priv)
 	if err != nil {
 		return
 	}
