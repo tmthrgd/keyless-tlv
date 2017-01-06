@@ -27,8 +27,6 @@ type Authorities struct {
 	m map[string]ed25519.PublicKey
 
 	cache map[authCacheKey]bool
-
-	Fallback IsAuthorisedFunc
 }
 
 func NewAuthorities() *Authorities {
@@ -56,21 +54,14 @@ func (a *Authorities) Remove(publicKey ed25519.PublicKey) {
 
 func (a *Authorities) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
 	if len(pub) == 0 {
-		if a.Fallback != nil {
-			return a.Fallback(pub, op)
-		}
-
 		return WrappedError{ErrorNotAuthorised,
 			errors.New("request does not have a signature")}
 	}
 
 	if len(op.Authorisation) != 8+ed25519.SignatureSize {
-		if a.Fallback != nil {
-			return a.Fallback(pub, op)
-		}
-
-		return WrappedError{ErrorFormat, fmt.Errorf("%s should be %d bytes, was %d bytes",
-			TagAuthorisation, 8+ed25519.SignatureSize, len(op.Authorisation))}
+		return WrappedError{ErrorNotAuthorised,
+			fmt.Errorf("%s should be %d bytes, was %d bytes", TagAuthorisation,
+				8+ed25519.SignatureSize, len(op.Authorisation))}
 	}
 
 	cacheKey := authCacheKey{
@@ -83,7 +74,11 @@ func (a *Authorities) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
 	ok, inCache := a.cache[cacheKey]
 	a.RUnlock()
 
-	if hasKey && !inCache {
+	if !hasKey {
+		return ErrorNotAuthorised
+	}
+
+	if !inCache {
 		ok = ed25519.Verify(key, pub, op.Authorisation[8:])
 
 		a.Lock()
@@ -102,14 +97,11 @@ func (a *Authorities) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
 		a.Unlock()
 	}
 
-	switch {
-	case hasKey && ok:
+	if ok {
 		return nil
-	case a.Fallback != nil:
-		return a.Fallback(pub, op)
-	default:
-		return ErrorNotAuthorised
 	}
+
+	return ErrorNotAuthorised
 }
 
 func (a *Authorities) ReadFrom(path string) error {

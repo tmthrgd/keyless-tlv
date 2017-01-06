@@ -26,8 +26,6 @@ type CertLoader struct {
 	skis      map[SKI]*Certificate
 	snis      map[string]certMap
 	serverIPs map[string]certMap
-
-	Fallback GetCertFunc
 }
 
 func NewCertLoader() *CertLoader {
@@ -168,11 +166,7 @@ func (c *CertLoader) GetCertificate(op *Operation) (cert *Certificate, err error
 		cert, ok = c.skis[op.SKI]
 		c.RUnlock()
 
-		switch {
-		case ok:
-		case c.Fallback != nil:
-			cert, err = c.Fallback(op)
-		default:
+		if !ok {
 			err = ErrorCertNotFound
 		}
 
@@ -180,12 +174,7 @@ func (c *CertLoader) GetCertificate(op *Operation) (cert *Certificate, err error
 	}
 
 	if len(op.SNI) == 0 && op.ServerIP == nil {
-		if c.Fallback != nil {
-			cert, err = c.Fallback(op)
-		} else {
-			err = ErrorCertNotFound
-		}
-
+		err = ErrorCertNotFound
 		return
 	}
 
@@ -254,10 +243,5 @@ func (c *CertLoader) GetCertificate(op *Operation) (cert *Certificate, err error
 	}
 
 	c.RUnlock()
-
-	if err == ErrorCertNotFound && c.Fallback != nil {
-		cert, err = c.Fallback(op)
-	}
-
 	return
 }
