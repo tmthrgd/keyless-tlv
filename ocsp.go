@@ -15,11 +15,10 @@ import (
 type ocspCacheEntry struct {
 	Bytes    []byte
 	Response *ocsp.Response
-	None     bool
 }
 
 func (e *ocspCacheEntry) Valid() bool {
-	return e.None || time.Now().Before(e.Response.NextUpdate)
+	return e.Response == nil || time.Now().Before(e.Response.NextUpdate)
 }
 
 type OCSPRequester struct {
@@ -97,7 +96,7 @@ func (or *OCSPRequester) GetCertificate(op *Operation) (cert *Certificate, err e
 }
 
 func (or *OCSPRequester) requestOCSP(cert *Certificate) (entry *ocspCacheEntry, err error) {
-	entry = &ocspCacheEntry{None: true}
+	entry = new(ocspCacheEntry)
 
 	switch len(cert.Payload) {
 	case 0:
@@ -150,17 +149,22 @@ func (or *OCSPRequester) requestOCSP(cert *Certificate) (entry *ocspCacheEntry, 
 
 	defer resp.Body.Close()
 
-	entry.Bytes, err = ioutil.ReadAll(http.MaxBytesReader(nil, resp.Body, 1024*1024))
+	ocspRespBytes, err := ioutil.ReadAll(http.MaxBytesReader(nil, resp.Body, 1024*1024))
 	if err != nil {
 		return
 	}
 
-	entry.Response, err = ocsp.ParseResponse(entry.Bytes, issuerCert)
-
-	if err == nil && entry.Response.Certificate == nil {
-		err = entry.Response.CheckSignatureFrom(issuerCert)
+	ocspResp, err := ocsp.ParseResponse(ocspRespBytes, issuerCert)
+	if err != nil {
+		return
 	}
 
-	entry.None = err != nil
+	if ocspResp.Certificate == nil {
+		if err = ocspResp.CheckSignatureFrom(issuerCert); err != nil {
+			return
+		}
+	}
+
+	entry.Bytes, entry.Response = ocspRespBytes, ocspResp
 	return
 }
