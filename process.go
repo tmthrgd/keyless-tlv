@@ -130,6 +130,8 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 			err = WrappedError{ErrorCryptoFailed, errors.New("request is EdDSA, but key is not")}
 			return
 		}
+	default:
+		panic("unreachable")
 	}
 
 	if out.Payload, err = key.Sign(rand.Reader, in.Payload, opts); err != nil {
