@@ -7,8 +7,8 @@ import (
 )
 
 type Certificate struct {
-	Payload []byte
 	SKI     SKI
+	Payload []byte
 	OCSP    []byte
 }
 

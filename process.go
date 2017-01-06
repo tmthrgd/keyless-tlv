@@ -40,7 +40,7 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 
 		var cert *Certificate
 		if cert, err = h.GetCert(in); err == nil {
-			out.Payload, out.SKI, out.OCSPResponse = cert.Payload, cert.SKI, cert.OCSP
+			out.SKI, out.Payload, out.OCSPResponse = cert.SKI, cert.Payload, cert.OCSP
 		}
 
 		return
