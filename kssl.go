@@ -20,9 +20,6 @@ type IsAuthorisedFunc func(pub ed25519.PublicKey, op *Operation) error
 const (
 	VersionMajor = 2
 	VersionMinor = 0
-
-	HeaderLength            = 8 + ed25519.PublicKeySize + ed25519.SignatureSize
-	HeaderLengthNoSignature = 8
 )
 
 type RequestHandler struct {

@@ -7,6 +7,11 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+const (
+	HeaderLength            = 8 + ed25519.PublicKeySize + ed25519.SignatureSize
+	HeaderLengthNoSignature = 8
+)
+
 var nilSig [ed25519.SignatureSize]byte
 
 type Header struct {
