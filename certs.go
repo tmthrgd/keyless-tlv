@@ -1,7 +1,6 @@
 package keyless
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/x509"
@@ -102,19 +101,8 @@ func (c *CertLoader) walker(path string, info os.FileInfo, err error) error {
 		return err
 	}
 
-	var b bytes.Buffer
-
-	for _, x509 := range x509s {
-		b.Grow(2 + len(x509.Raw))
-
-		binary.Write(&b, binary.BigEndian, uint16(len(x509.Raw)))
-		b.Write(x509.Raw)
-	}
-
-	cert := &Certificate{
-		Payload: b.Bytes(),
-		SKI:     ski,
-	}
+	cert := &Certificate{SKI: ski}
+	cert.SetPayloadFromX509s(x509s)
 
 	c.Lock()
 	c.skis[ski] = cert

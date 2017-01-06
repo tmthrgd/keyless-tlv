@@ -14,7 +14,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
-	"encoding/binary"
 	"errors"
 	"sync"
 
@@ -178,7 +177,8 @@ func (ac *ACMEClient) requestCertificate(sni []byte) (cert *Certificate, err err
 		return
 	}
 
-	cert = ac.buildCert(ski, der)
+	cert = &Certificate{SKI: ski}
+	cert.SetPayloadFromDER(der)
 
 	ac.Lock()
 	ac.keys[ski] = priv
@@ -240,7 +240,8 @@ challenges:
 		return err
 	}
 
-	cert2 := ac.buildCert(ski, cert.Certificate)
+	cert2 := &Certificate{SKI: ski}
+	cert2.SetPayloadFromDER(cert.Certificate)
 
 	ac.Lock()
 	ac.keys[ski] = priv
@@ -262,20 +263,4 @@ challenges:
 
 	_, err = ac.client.WaitAuthorization(ctx, authz.URI)
 	return err
-}
-
-func (ac *ACMEClient) buildCert(ski SKI, ders [][]byte) *Certificate {
-	var b bytes.Buffer
-
-	for _, der := range ders {
-		b.Grow(2 + len(der))
-
-		binary.Write(&b, binary.BigEndian, uint16(len(der)))
-		b.Write(der)
-	}
-
-	return &Certificate{
-		Payload: b.Bytes(),
-		SKI:     ski,
-	}
 }

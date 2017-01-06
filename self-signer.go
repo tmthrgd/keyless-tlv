@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/binary"
 	"math/big"
 	"sync"
 	"time"
@@ -152,12 +151,8 @@ func (ss *SelfSigner) generateCertificate(sni []byte) (cert *Certificate, err er
 		return
 	}
 
-	cert = &Certificate{
-		Payload: make([]byte, 2+len(der)),
-		SKI:     ski,
-	}
-	binary.BigEndian.PutUint16(cert.Payload, uint16(len(der)))
-	copy(cert.Payload[2:], der)
+	cert = &Certificate{SKI: ski}
+	cert.SetPayloadFromDER([][]byte{der})
 
 	ss.Lock()
 	ss.keys[ski] = priv
