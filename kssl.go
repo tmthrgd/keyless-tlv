@@ -43,6 +43,7 @@ type RequestHandler struct {
 	IsAuthorised IsAuthorisedFunc
 
 	NoSignature bool
+	SkipPadding bool
 }
 
 func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
@@ -96,6 +97,8 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	if op.Opcode == 0 {
 		op.Opcode = OpResponse
 	}
+
+	op.SkipPadding = h.SkipPadding
 
 	var privKey ed25519.PrivateKey
 

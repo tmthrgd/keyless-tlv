@@ -14,11 +14,7 @@ import (
 
 const PadTo = 1024
 
-var (
-	padding [PadTo]byte
-
-	usePadding bool = true
-)
+var padding [PadTo]byte
 
 type Operation struct {
 	Opcode             Op
@@ -34,6 +30,8 @@ type Operation struct {
 	HasECDSACipher bool
 
 	errorBuffer [2]byte
+
+	SkipPadding bool
 }
 
 func (op *Operation) String() string {
@@ -116,7 +114,7 @@ func (op *Operation) Marshal(w Writer) {
 		w.Write(op.Payload)
 	}
 
-	if usePadding && w.Len() < PadTo {
+	if !op.SkipPadding && w.Len() < PadTo {
 		toPad := PadTo - w.Len()
 
 		// padding tag

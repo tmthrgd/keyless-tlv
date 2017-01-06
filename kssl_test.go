@@ -23,10 +23,6 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-func init() {
-	usePadding = false
-}
-
 type loggerWriter struct {
 	testing.TB
 }
@@ -80,6 +76,7 @@ func runner(tb testing.TB) {
 		IsAuthorised: isAuthorised,
 
 		NoSignature: true,
+		SkipPadding: true,
 	}
 
 	if err := filepath.Walk("./test-data/transcript", func(path string, info os.FileInfo, err error) error {
@@ -269,6 +266,7 @@ func signing(tb testing.TB) {
 		IsAuthorised: isAuthorised,
 
 		NoSignature: true,
+		SkipPadding: true,
 	}
 
 	for j, idx := 0, 0; j <= 1; j++ {
