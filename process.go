@@ -55,15 +55,26 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 			return
 		}
 
-		rsaKey, ok := key.(*rsa.PrivateKey)
-		if !ok {
+		if _, ok := key.Public().(*rsa.PublicKey); !ok {
 			err = WrappedError{ErrorCryptoFailed, errors.New("request is RSA, but key is not")}
 			return
 		}
 
 		if in.Opcode == OpRSADecryptRaw {
+			rsaKey, ok := key.(*rsa.PrivateKey)
+			if !ok {
+				err = WrappedError{ErrorCryptoFailed, errors.New("key is not *rsa.PrivateKey")}
+				return
+			}
+
 			out.Payload, err = rsaRawDecrypt(rand.Reader, rsaKey, in.Payload)
 		} else {
+			rsaKey, ok := key.(crypto.Decrypter)
+			if !ok {
+				err = WrappedError{ErrorCryptoFailed, errors.New("key does not implemented crypto.Decrypter")}
+				return
+			}
+
 			out.Payload, err = rsaKey.Decrypt(rand.Reader, in.Payload, nil)
 		}
 
