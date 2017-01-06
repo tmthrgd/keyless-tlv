@@ -3,6 +3,7 @@ package keyless
 import (
 	"bytes"
 	"crypto"
+	"encoding/base64"
 	"errors"
 	"log"
 	"sync"
@@ -66,7 +67,8 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 		if h.NoSignature {
 			log.Printf("id: %d, %v", hdr.ID, op)
 		} else {
-			log.Printf("id: %d, key: %s, %v", hdr.ID, publicKeyString(hdr.PublicKey), op)
+			log.Printf("id: %d, key: %s, %v", hdr.ID,
+				base64.RawStdEncoding.EncodeToString(hdr.PublicKey), op)
 		}
 
 		if h.IsAuthorised != nil {
