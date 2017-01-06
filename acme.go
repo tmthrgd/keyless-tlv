@@ -55,9 +55,6 @@ func NewACMEClient(client *acme.Client) *ACMEClient {
 		GetContext: func([]byte) context.Context {
 			return context.Background()
 		},
-		MustStaple: func([]byte) bool {
-			return false
-		},
 	}
 }
 
@@ -159,7 +156,7 @@ func (ac *ACMEClient) requestCertificate(sni []byte) (cert *Certificate, err err
 		},
 	}
 
-	if ac.MustStaple(sni) {
+	if ac.MustStaple != nil && ac.MustStaple(sni) {
 		req.Extensions = append(req.Extensions, pkix.Extension{
 			Id:    oidTLSFeature,
 			Value: mustStapleFeatureValue,
