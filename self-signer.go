@@ -132,8 +132,6 @@ func (ss *SelfSigner) generateCertificate(sni []byte) (cert *Certificate, err er
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 
 		BasicConstraintsValid: true,
-
-		DNSNames: []string{string(sni)},
 	}
 
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
