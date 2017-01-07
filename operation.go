@@ -44,7 +44,9 @@ type Writer interface {
 	Len() int
 }
 
-func (op *Operation) Marshal(w Writer) {
+func (op *Operation) Marshal(ow Writer) error {
+	w := &errWriter{w: ow}
+
 	// opcode tag
 	binary.Write(w, binary.BigEndian, uint16(TagOpcode))
 	binary.Write(w, binary.BigEndian, uint16(2))
@@ -113,14 +115,16 @@ func (op *Operation) Marshal(w Writer) {
 		w.Write(op.Payload)
 	}
 
-	if !op.SkipPadding && w.Len() < PadTo {
-		toPad := PadTo - w.Len()
+	if !op.SkipPadding && ow.Len() < PadTo {
+		toPad := PadTo - ow.Len()
 
 		// padding tag
 		binary.Write(w, binary.BigEndian, uint16(TagPadding))
 		binary.Write(w, binary.BigEndian, uint16(toPad))
 		w.Write(padding[:toPad])
 	}
+
+	return w.err
 }
 
 func (op *Operation) Unmarshal(in []byte) error {
