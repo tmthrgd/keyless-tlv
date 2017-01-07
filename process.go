@@ -13,6 +13,8 @@ import (
 type RSARawDecryptOptions struct{}
 
 var (
+	rsaRawDecryptOpts = new(RSARawDecryptOptions)
+
 	rsaPSSOptsSHA256 = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA256}
 	rsaPSSOptsSHA384 = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA384}
 	rsaPSSOptsSHA512 = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA512}
@@ -66,7 +68,7 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 			if rsaKey, ok := key.(*rsa.PrivateKey); ok {
 				out.Payload, err = rsaRawDecrypt(rand.Reader, rsaKey, in.Payload)
 			} else if rsaKey, ok := key.(crypto.Decrypter); ok {
-				out.Payload, err = rsaKey.Decrypt(rand.Reader, in.Payload, new(RSARawDecryptOptions))
+				out.Payload, err = rsaKey.Decrypt(rand.Reader, in.Payload, rsaRawDecryptOpts)
 			} else {
 				err = errors.New("key does not implemented crypto.Decrypter")
 			}
