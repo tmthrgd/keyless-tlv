@@ -19,7 +19,7 @@ func (h *RequestHandler) ReadKeyFile(path string) error {
 	}
 
 	h.Lock()
-	h.PrivateKey = keyfile[:ed25519.PrivateKeySize]
+	h.PrivateKey = keyfile[:ed25519.PrivateKeySize:ed25519.PrivateKeySize]
 	h.PublicKey = h.PrivateKey.Public().(ed25519.PublicKey)
 	h.Authorisation = keyfile[ed25519.PrivateKeySize:]
 	h.Unlock()
