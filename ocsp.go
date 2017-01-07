@@ -147,9 +147,10 @@ func (or *OCSPRequester) requestOCSP(cert *Certificate) (entry *ocspCacheEntry, 
 		return
 	}
 
-	defer resp.Body.Close()
-
 	ocspRespBytes, err := ioutil.ReadAll(http.MaxBytesReader(nil, resp.Body, 1024*1024))
+
+	resp.Body.Close()
+
 	if err != nil {
 		return
 	}
