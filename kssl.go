@@ -41,7 +41,9 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	start := time.Now()
 
 	hdr := Header{NoSignature: h.NoSignature}
-	if in, err = hdr.Unmarshal(in); err != nil {
+
+	body, err := hdr.Unmarshal(in)
+	if err != nil {
 		return
 	}
 
@@ -50,12 +52,12 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	switch {
 	case hdr.Major != VersionMajor:
 		err = ErrorVersionMismatch
-	case int(hdr.Length) != len(in):
+	case int(hdr.Length) != len(body):
 		err = WrappedError{ErrorFormat, errors.New("invalid header length")}
-	case !h.NoSignature && !ed25519.Verify(hdr.PublicKey, in, hdr.Signature):
+	case !h.NoSignature && !ed25519.Verify(hdr.PublicKey, body, hdr.Signature):
 		err = WrappedError{ErrorNotAuthorised, errors.New("invalid signature")}
 	default:
-		err = op.Unmarshal(in)
+		err = op.Unmarshal(body)
 	}
 
 	if err == nil {
