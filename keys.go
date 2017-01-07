@@ -20,16 +20,16 @@ var keyExt = regexp.MustCompile(`.+\.key`)
 
 type KeyLoader struct {
 	sync.RWMutex
-	skis map[SKI]crypto.Signer
+	skis map[SKI]crypto.PrivateKey
 }
 
 func NewKeyLoader() *KeyLoader {
 	return &KeyLoader{
-		skis: make(map[SKI]crypto.Signer),
+		skis: make(map[SKI]crypto.PrivateKey),
 	}
 }
 
-func (k *KeyLoader) GetKey(ski SKI) (priv crypto.Signer, err error) {
+func (k *KeyLoader) GetKey(ski SKI) (priv crypto.PrivateKey, err error) {
 	k.RLock()
 	priv, ok := k.skis[ski]
 	k.RUnlock()

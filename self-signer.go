@@ -16,7 +16,7 @@ var serialNumberMax = new(big.Int).Lsh(big.NewInt(1), 128)
 
 type SelfSigner struct {
 	sync.RWMutex
-	keys  map[SKI]crypto.Signer
+	keys  map[SKI]crypto.PrivateKey
 	certs map[SKI]*Certificate
 	snis  map[string]*Certificate
 
@@ -25,7 +25,7 @@ type SelfSigner struct {
 
 func NewSelfSigner() *SelfSigner {
 	return &SelfSigner{
-		keys:  make(map[SKI]crypto.Signer),
+		keys:  make(map[SKI]crypto.PrivateKey),
 		certs: make(map[SKI]*Certificate),
 		snis:  make(map[string]*Certificate),
 
@@ -33,7 +33,7 @@ func NewSelfSigner() *SelfSigner {
 	}
 }
 
-func (ss *SelfSigner) GetKey(ski SKI) (priv crypto.Signer, err error) {
+func (ss *SelfSigner) GetKey(ski SKI) (priv crypto.PrivateKey, err error) {
 	ss.RLock()
 	priv, ok := ss.keys[ski]
 	ss.RUnlock()

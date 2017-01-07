@@ -87,8 +87,18 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 		return
 	}
 
-	var key crypto.Signer
-	if key, err = h.GetKey(in.SKI); err != nil {
+	key, err := h.GetKey(in.SKI)
+	if err != nil {
+		return
+	}
+
+	type publicKeyMethod interface {
+		Public() crypto.PublicKey
+	}
+
+	publicInt, ok := key.(publicKeyMethod)
+	if !ok {
+		err = WrappedError{ErrorCryptoFailed, errors.New("key does not implemented crypto.Decrypter or crypto.Signer")}
 		return
 	}
 
@@ -97,18 +107,18 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 	case OpRSADecrypt, OpRSADecryptRaw,
 		OpRSASignMD5SHA1, OpRSASignSHA1, OpRSASignSHA224, OpRSASignSHA256, OpRSASignSHA384, OpRSASignSHA512,
 		OpRSAPSSSignSHA256, OpRSAPSSSignSHA384, OpRSAPSSSignSHA512:
-		if _, ok := key.Public().(*rsa.PublicKey); !ok {
+		if _, ok := publicInt.Public().(*rsa.PublicKey); !ok {
 			err = WrappedError{ErrorCryptoFailed, errors.New("request is RSA, but key is not")}
 			return
 		}
 	case OpECDSASignMD5SHA1, OpECDSASignSHA1, OpECDSASignSHA224, OpECDSASignSHA256, OpECDSASignSHA384, OpECDSASignSHA512:
-		if _, ok := key.Public().(*ecdsa.PublicKey); !ok {
+		if _, ok := publicInt.Public().(*ecdsa.PublicKey); !ok {
 			err = WrappedError{ErrorCryptoFailed, errors.New("request is ECDSA, but key is not")}
 			return
 		}
 	case OpEd25519Sign:
 		if _, ok := key.(ed25519.PrivateKey); !ok {
-			if _, ok = key.Public().(ed25519.PublicKey); !ok {
+			if _, ok = publicInt.Public().(ed25519.PublicKey); !ok {
 				err = WrappedError{ErrorCryptoFailed, errors.New("request is EdDSA, but key is not")}
 				return
 			}
@@ -127,15 +137,19 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 
 		fallthrough
 	case OpRSADecrypt:
-		if rsaKey, ok := key.(crypto.Decrypter); ok {
-			out.Payload, err = rsaKey.Decrypt(rand.Reader, in.Payload, decryptOpts)
+		if decrypter, ok := key.(crypto.Decrypter); ok {
+			out.Payload, err = decrypter.Decrypt(rand.Reader, in.Payload, decryptOpts)
 			err = wrapError(ErrorCryptoFailed, err)
 		} else {
 			err = WrappedError{ErrorCryptoFailed, errors.New("key does not implemented crypto.Decrypter")}
 		}
 	default:
-		out.Payload, err = key.Sign(rand.Reader, in.Payload, signOpts)
-		err = wrapError(ErrorCryptoFailed, err)
+		if signer, ok := key.(crypto.Signer); ok {
+			out.Payload, err = signer.Sign(rand.Reader, in.Payload, signOpts)
+			err = wrapError(ErrorCryptoFailed, err)
+		} else {
+			err = WrappedError{ErrorCryptoFailed, errors.New("key does not implemented crypto.Signer")}
+		}
 	}
 
 	return

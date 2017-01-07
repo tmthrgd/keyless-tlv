@@ -20,7 +20,7 @@ func (ch GetCertChain) GetCertificate(op *Operation) (cert *Certificate, err err
 
 type GetKeyChain []GetKeyFunc
 
-func (ch GetKeyChain) GetKey(ski SKI) (priv crypto.Signer, err error) {
+func (ch GetKeyChain) GetKey(ski SKI) (priv crypto.PrivateKey, err error) {
 	for _, fn := range ch {
 		if priv, err = fn(ski); getErrorCode(err) != ErrorKeyNotFound {
 			return

@@ -331,7 +331,7 @@ func signing(tb testing.TB) {
 						logger.TB = tb
 					}()
 
-					runTestSigningCase(tt, byte(idx), h, j == 1, priv.Public(), handler)
+					runTestSigningCase(tt, byte(idx), h, j == 1, priv.(crypto.Signer).Public(), handler)
 				})
 			}
 

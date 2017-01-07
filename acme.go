@@ -28,7 +28,7 @@ var (
 
 type ACMEClient struct {
 	sync.RWMutex
-	keys  map[SKI]crypto.Signer
+	keys  map[SKI]crypto.PrivateKey
 	certs map[SKI]*Certificate
 	snis  map[string]*Certificate
 
@@ -42,7 +42,7 @@ type ACMEClient struct {
 
 func NewACMEClient(client *acme.Client) *ACMEClient {
 	return &ACMEClient{
-		keys:  make(map[SKI]crypto.Signer),
+		keys:  make(map[SKI]crypto.PrivateKey),
 		certs: make(map[SKI]*Certificate),
 		snis:  make(map[string]*Certificate),
 
@@ -56,7 +56,7 @@ func NewACMEClient(client *acme.Client) *ACMEClient {
 	}
 }
 
-func (ac *ACMEClient) GetKey(ski SKI) (priv crypto.Signer, err error) {
+func (ac *ACMEClient) GetKey(ski SKI) (priv crypto.PrivateKey, err error) {
 	ac.RLock()
 	priv, ok := ac.keys[ski]
 	ac.RUnlock()

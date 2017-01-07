@@ -15,7 +15,7 @@ import (
 )
 
 type GetCertFunc func(op *Operation) (cert *Certificate, err error)
-type GetKeyFunc func(ski SKI) (priv crypto.Signer, err error)
+type GetKeyFunc func(ski SKI) (priv crypto.PrivateKey, err error)
 type IsAuthorisedFunc func(pub ed25519.PublicKey, op *Operation) error
 
 const (
