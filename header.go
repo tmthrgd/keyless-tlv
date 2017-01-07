@@ -8,6 +8,11 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+const (
+	headerLength            = 8 + ed25519.PublicKeySize + ed25519.SignatureSize
+	headerLengthNoSignature = 8
+)
+
 var nilSig [ed25519.SignatureSize]byte
 
 type Header struct {
@@ -23,7 +28,7 @@ type Header struct {
 
 func (h *Header) Marshal(op *Operation, priv ed25519.PrivateKey, buf []byte) []byte {
 	b := bytes.NewBuffer(buf)
-	b.Grow(PadTo + 4)
+	b.Grow(headerLength + PadTo + 4)
 
 	b.WriteByte(VersionMajor)
 	b.WriteByte(VersionMinor)
@@ -51,11 +56,6 @@ func (h *Header) Marshal(op *Operation, priv ed25519.PrivateKey, buf []byte) []b
 }
 
 func (h *Header) Unmarshal(in []byte) (rest []byte, err error) {
-	const (
-		headerLength            = 8 + ed25519.PublicKeySize + ed25519.SignatureSize
-		headerLengthNoSignature = 8
-	)
-
 	if (h.NoSignature && len(in) < headerLengthNoSignature) ||
 		(!h.NoSignature && len(in) < headerLength) {
 		return nil, errors.New("missing header")
