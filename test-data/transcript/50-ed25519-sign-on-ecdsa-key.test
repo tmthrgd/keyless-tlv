@@ -1,0 +1,21 @@
+02 00                   ; version
+00 1e                   ; length
+00 00 00 32             ; id
+00 11                   ; opcode tag
+00 02                   ; length
+01 01                   ; ed25519 sign
+00 04                   ; ski tag
+00 14                   ; length
+00 82 62 7c 92 e8 c4 6c ; value - ski of test-ecdsa-key.key
+8c 05 71 3f 0a 70 eb 2e ; ...
+09 f9 63 c1             ; ...
+---
+02 00                   ; version
+00 0c                   ; length
+00 00 00 32             ; id
+00 11                   ; opcode tag
+00 02                   ; length
+00 ff                   ; error
+00 12                   ; payload tag
+00 02                   ; length
+00 01                   ; crypto failed
