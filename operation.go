@@ -1,7 +1,6 @@
 package keyless
 
 import (
-	"bytes"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -127,23 +126,19 @@ func (op *Operation) Marshal(w Writer) {
 func (op *Operation) Unmarshal(in []byte) error {
 	*op = Operation{}
 
-	r := bytes.NewReader(in)
-
 	seen := make(map[Tag]struct{})
 
-	for r.Len() != 0 {
-		var tag Tag
-		if err := binary.Read(r, binary.BigEndian, (*uint16)(&tag)); err != nil {
-			return WrappedError{ErrorFormat, err}
+	for len(in) != 0 {
+		if len(in) < 4 {
+			return WrappedError{ErrorFormat, errors.New("missing tag and length")}
 		}
 
-		var length uint16
-		if err := binary.Read(r, binary.BigEndian, &length); err != nil {
-			return WrappedError{ErrorFormat, err}
-		}
+		tag := Tag(binary.BigEndian.Uint16(in))
+		length := binary.BigEndian.Uint16(in[2:])
+		in = in[4:]
 
-		if int(length) > r.Len() {
-			return WrappedError{ErrorFormat, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-r.Len())}
+		if int(length) > len(in) {
+			return WrappedError{ErrorFormat, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-len(in))}
 		}
 
 		if _, saw := seen[tag]; saw {
@@ -151,73 +146,68 @@ func (op *Operation) Unmarshal(in []byte) error {
 		}
 		seen[tag] = struct{}{}
 
-		offset, err := r.Seek(int64(length), io.SeekCurrent)
-		if err != nil {
-			return WrappedError{ErrorInternal, err}
-		}
-
-		data := in[offset-int64(length) : offset]
-
 		switch tag {
 		case TagDigest:
-			if len(data) != sha256.Size {
-				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 32 bytes, was %d bytes", TagDigest, len(data))}
+			if length != sha256.Size {
+				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 32 bytes, was %d bytes", TagDigest, length)}
 			}
 		case TagSNI:
-			op.SNI = data
+			op.SNI = in[:length]
 		case TagClientIP:
-			if len(data) != net.IPv4len && len(data) != net.IPv6len {
-				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 4 or 16 bytes, was %d bytes", TagClientIP, len(data))}
+			if length != net.IPv4len && length != net.IPv6len {
+				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 4 or 16 bytes, was %d bytes", TagClientIP, length)}
 			}
 
-			op.ClientIP = data
+			op.ClientIP = in[:length]
 		case TagSKI:
-			if len(data) != sha1.Size {
-				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 20 bytes, was %d bytes", TagSKI, len(data))}
+			if length != sha1.Size {
+				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 20 bytes, was %d bytes", TagSKI, length)}
 			}
 
-			copy(op.SKI[:], data)
+			copy(op.SKI[:], in[:length])
 		case TagServerIP:
-			if len(data) != net.IPv4len && len(data) != net.IPv6len {
-				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 4 or 16 bytes, was %d bytes", TagServerIP, len(data))}
+			if length != net.IPv4len && length != net.IPv6len {
+				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 4 or 16 bytes, was %d bytes", TagServerIP, length)}
 			}
 
-			op.ServerIP = data
+			op.ServerIP = in[:length]
 		case TagSigAlgs:
-			if len(data)%2 != 0 {
-				return WrappedError{ErrorFormat, fmt.Errorf("%s should be even number of bytes, was %d bytes", TagSigAlgs, len(data))}
+			if length%2 != 0 {
+				return WrappedError{ErrorFormat, fmt.Errorf("%s should be even number of bytes, was %d bytes", TagSigAlgs, length)}
 			}
 
-			op.SigAlgs = data
+			op.SigAlgs = in[:length]
 		case TagOpcode:
-			if len(data) != 2 {
-				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 2 bytes, was %d bytes", TagOpcode, len(data))}
+			if length != 2 {
+				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 2 bytes, was %d bytes", TagOpcode, length)}
 			}
 
-			op.Opcode = Op(binary.BigEndian.Uint16(data))
+			op.Opcode = Op(binary.BigEndian.Uint16(in))
 		case TagPayload:
-			op.Payload = data
+			op.Payload = in[:length]
 		case TagPadding:
 			var v byte
 
-			for i := 0; i < len(data); i++ {
-				v |= data[i]
+			for i := 0; i < int(length); i++ {
+				v |= in[i]
 			}
 
 			if subtle.ConstantTimeByteEq(v, 0) == 0 {
 				return WrappedError{ErrorFormat, errors.New("invalid padding")}
 			}
 		case TagOCSPResponse:
-			op.OCSPResponse = data
+			op.OCSPResponse = in[:length]
 		case TagAuthorisation:
-			op.Authorisation = data
+			op.Authorisation = in[:length]
 		case TagECDSACipher:
-			if len(data) != 1 {
-				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", TagECDSACipher, len(data))}
+			if length != 1 {
+				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", TagECDSACipher, length)}
 			}
 
-			op.HasECDSACipher = data[0]&0x01 != 0
+			op.HasECDSACipher = in[0]&0x01 != 0
 		}
+
+		in = in[length:]
 	}
 
 	return nil
