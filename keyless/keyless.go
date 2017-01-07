@@ -47,6 +47,9 @@ func main() {
 	var authoritiesPath string
 	flag.StringVar(&authoritiesPath, "authorities", "/etc/keyless.auth", "the file to read authorities from")
 
+	var stapleOCSP bool
+	flag.BoolVar(&stapleOCSP, "ocsp", false, "staple OCSP responses")
+
 	flag.Parse()
 
 	var conn net.PacketConn
@@ -89,8 +92,15 @@ func main() {
 		panic(err)
 	}
 
+	getCert := certs.GetCertificate
+
+	if stapleOCSP {
+		ocsp := keyless.NewOCSPRequester(getCert)
+		getCert = ocsp.GetCertificate
+	}
+
 	handler := &keyless.RequestHandler{
-		GetCert: certs.GetCertificate,
+		GetCert: getCert,
 		GetKey:  keys.GetKey,
 
 		IsAuthorised: auths.IsAuthorised,
