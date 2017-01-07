@@ -245,18 +245,14 @@ challenges:
 	ac.snis[name] = cert2
 	ac.Unlock()
 
-	defer func() {
-		ac.Lock()
-		delete(ac.keys, ski)
-		delete(ac.certs, ski)
-		delete(ac.snis, name)
-		ac.Unlock()
-	}()
-
-	if _, err = ac.client.Accept(ctx, chal); err != nil {
-		return err
+	if _, err = ac.client.Accept(ctx, chal); err == nil {
+		_, err = ac.client.WaitAuthorization(ctx, authz.URI)
 	}
 
-	_, err = ac.client.WaitAuthorization(ctx, authz.URI)
+	ac.Lock()
+	delete(ac.keys, ski)
+	delete(ac.certs, ski)
+	delete(ac.snis, name)
+	ac.Unlock()
 	return err
 }
