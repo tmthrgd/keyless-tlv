@@ -80,7 +80,6 @@ func (k *KeyLoader) walker(path string, info os.FileInfo, err error) error {
 	k.Lock()
 	k.skis[ski] = priv
 	k.Unlock()
-
 	return nil
 }
 
