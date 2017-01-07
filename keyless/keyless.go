@@ -97,6 +97,13 @@ func main() {
 	getCert := certs.GetCertificate
 	getKey := keys.GetKey
 
+	if selfSign {
+		ss := keyless.NewSelfSigner()
+
+		getCert = (keyless.GetCertChain{getCert, ss.GetCertificate}).GetCertificate
+		getKey = (keyless.GetKeyChain{getKey, ss.GetKey}).GetKey
+	}
+
 	if len(acmeKeyPath) != 0 {
 		in, err := ioutil.ReadFile(acmeKeyPath)
 		if err != nil {
@@ -119,13 +126,6 @@ func main() {
 
 		getCert = (keyless.GetCertChain{getCert, ac.GetCertificate}).GetCertificate
 		getKey = (keyless.GetKeyChain{getKey, ac.GetKey}).GetKey
-	}
-
-	if selfSign {
-		ss := keyless.NewSelfSigner()
-
-		getCert = (keyless.GetCertChain{getCert, ss.GetCertificate}).GetCertificate
-		getKey = (keyless.GetKeyChain{getKey, ss.GetKey}).GetKey
 	}
 
 	if stapleOCSP {
