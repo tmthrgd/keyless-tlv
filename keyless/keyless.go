@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -12,9 +13,13 @@ import (
 	"sync"
 	"syscall"
 
+	"golang.org/x/crypto/acme"
+	"golang.org/x/crypto/ed25519"
+
+	"github.com/cloudflare/cfssl/helpers"
+	"github.com/cloudflare/cfssl/helpers/derhelpers"
 	"github.com/jbenet/go-reuseport"
 	"github.com/tmthrgd/keyless"
-	"golang.org/x/crypto/ed25519"
 )
 
 var bufferPool = &sync.Pool{
@@ -53,6 +58,12 @@ func main() {
 	var selfSign bool
 	flag.BoolVar(&selfSign, "self-sign", false, "return self signed certificates for unkown server names")
 
+	var acmeKeyPath string
+	flag.StringVar(&acmeKeyPath, "acme", "", "the path to the ACME client key")
+
+	var acmeURL string
+	flag.StringVar(&acmeURL, "acme-url", acme.LetsEncryptURL, "the ACME directory URL")
+
 	flag.Parse()
 
 	var conn net.PacketConn
@@ -85,6 +96,30 @@ func main() {
 
 	getCert := certs.GetCertificate
 	getKey := keys.GetKey
+
+	if len(acmeKeyPath) != 0 {
+		in, err := ioutil.ReadFile(acmeKeyPath)
+		if err != nil {
+			panic(err)
+		}
+
+		priv, err := helpers.ParsePrivateKeyPEM(in)
+		if err != nil {
+			priv, err = derhelpers.ParsePrivateKeyDER(in)
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		ac := keyless.NewACMEClient(&acme.Client{
+			Key: priv,
+
+			DirectoryURL: acmeURL,
+		})
+
+		getCert = (keyless.GetCertChain{getCert, ac.GetCertificate}).GetCertificate
+		getKey = (keyless.GetKeyChain{getKey, ac.GetKey}).GetKey
+	}
 
 	if selfSign {
 		ss := keyless.NewSelfSigner()
