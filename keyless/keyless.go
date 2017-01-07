@@ -83,18 +83,6 @@ func main() {
 	certs := keyless.NewCertLoader()
 	auths := keyless.NewAuthorities()
 
-	if err = keys.LoadFromDir(dir); err != nil {
-		panic(err)
-	}
-
-	if err = certs.LoadFromDir(dir); err != nil {
-		panic(err)
-	}
-
-	if err = auths.ReadFrom(authoritiesPath); err != nil {
-		panic(err)
-	}
-
 	getCert := certs.GetCertificate
 	getKey := keys.GetKey
 
@@ -115,6 +103,18 @@ func main() {
 		GetKey:  getKey,
 
 		IsAuthorised: auths.IsAuthorised,
+	}
+
+	if err = keys.LoadFromDir(dir); err != nil {
+		panic(err)
+	}
+
+	if err = certs.LoadFromDir(dir); err != nil {
+		panic(err)
+	}
+
+	if err = auths.ReadFrom(authoritiesPath); err != nil {
+		panic(err)
 	}
 
 	if err = handler.ReadKeyFile(keyfilePath); err != nil {
