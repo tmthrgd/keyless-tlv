@@ -105,19 +105,23 @@ func main() {
 		IsAuthorised: auths.IsAuthorised,
 	}
 
-	if err = keys.LoadFromDir(dir); err != nil {
-		panic(err)
+	var reload = func() error {
+		if err := keys.LoadFromDir(dir); err != nil {
+			return err
+		}
+
+		if err := certs.LoadFromDir(dir); err != nil {
+			return err
+		}
+
+		if err := auths.ReadFrom(authoritiesPath); err != nil {
+			return err
+		}
+
+		return handler.ReadKeyFile(keyfilePath)
 	}
 
-	if err = certs.LoadFromDir(dir); err != nil {
-		panic(err)
-	}
-
-	if err = auths.ReadFrom(authoritiesPath); err != nil {
-		panic(err)
-	}
-
-	if err = handler.ReadKeyFile(keyfilePath); err != nil {
+	if err = reload(); err != nil {
 		panic(err)
 	}
 
@@ -128,19 +132,7 @@ func main() {
 		for range c {
 			log.Println("Received SIGHUP, reloading keys...")
 
-			if err := keys.LoadFromDir(dir); err != nil {
-				panic(err)
-			}
-
-			if err := certs.LoadFromDir(dir); err != nil {
-				panic(err)
-			}
-
-			if err := auths.ReadFrom(authoritiesPath); err != nil {
-				panic(err)
-			}
-
-			if err := handler.ReadKeyFile(keyfilePath); err != nil {
+			if err := reload(); err != nil {
 				panic(err)
 			}
 
