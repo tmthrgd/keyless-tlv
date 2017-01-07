@@ -23,7 +23,7 @@ type Header struct {
 
 func (h *Header) Marshal(op *Operation, priv ed25519.PrivateKey, buf []byte) []byte {
 	b := bytes.NewBuffer(buf)
-	b.Grow(PadTo + 3)
+	b.Grow(PadTo + 4)
 
 	b.WriteByte(VersionMajor)
 	b.WriteByte(VersionMinor)
