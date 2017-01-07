@@ -16,3 +16,14 @@ func (w *errWriter) Write(p []byte) (n int, err error) {
 	w.err = err
 	return
 }
+
+type lenWriter struct {
+	w io.Writer
+	n int
+}
+
+func (w *lenWriter) Write(p []byte) (n int, err error) {
+	n, err = w.w.Write(p)
+	w.n += n
+	return
+}

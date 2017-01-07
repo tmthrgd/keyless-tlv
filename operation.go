@@ -38,14 +38,9 @@ func (op *Operation) String() string {
 		op.Opcode, op.SKI, op.ClientIP, op.ServerIP, op.SNI, op.SigAlgs, op.HasECDSACipher)
 }
 
-type Writer interface {
-	io.Writer
-
-	Len() int
-}
-
-func (op *Operation) Marshal(ow Writer) error {
-	w := &errWriter{w: ow}
+func (op *Operation) Marshal(ow io.Writer) error {
+	lw := &lenWriter{w: ow}
+	w := &errWriter{w: lw}
 
 	// opcode tag
 	binary.Write(w, binary.BigEndian, uint16(TagOpcode))
@@ -115,8 +110,8 @@ func (op *Operation) Marshal(ow Writer) error {
 		w.Write(op.Payload)
 	}
 
-	if !op.SkipPadding && ow.Len() < PadTo {
-		toPad := PadTo - ow.Len()
+	if !op.SkipPadding && lw.n < PadTo {
+		toPad := PadTo - lw.n
 
 		// padding tag
 		binary.Write(w, binary.BigEndian, uint16(TagPadding))
