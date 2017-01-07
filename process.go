@@ -49,41 +49,6 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 
 		return
 	case OpRSADecrypt, OpRSADecryptRaw:
-		if h.GetKey == nil || !in.SKI.Valid() {
-			err = ErrorKeyNotFound
-			return
-		}
-
-		var key crypto.Signer
-		if key, err = h.GetKey(in.SKI); err != nil {
-			return
-		}
-
-		if _, ok := key.Public().(*rsa.PublicKey); !ok {
-			err = WrappedError{ErrorCryptoFailed, errors.New("request is RSA, but key is not")}
-			return
-		}
-
-		var opts crypto.DecrypterOpts
-
-		if in.Opcode == OpRSADecryptRaw {
-			if rsaKey, ok := key.(*rsa.PrivateKey); ok {
-				out.Payload, err = rsaRawDecrypt(rand.Reader, rsaKey, in.Payload)
-				err = wrapError(ErrorCryptoFailed, err)
-				return
-			}
-
-			opts = rsaRawDecryptOpts
-		}
-
-		if rsaKey, ok := key.(crypto.Decrypter); ok {
-			out.Payload, err = rsaKey.Decrypt(rand.Reader, in.Payload, opts)
-			err = wrapError(ErrorCryptoFailed, err)
-		} else {
-			err = WrappedError{ErrorCryptoFailed, errors.New("key does not implemented crypto.Decrypter")}
-		}
-
-		return
 	case OpRSASignMD5SHA1, OpECDSASignMD5SHA1:
 		opts = crypto.MD5SHA1
 	case OpRSASignSHA1, OpECDSASignSHA1:
@@ -126,7 +91,8 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 
 	// Ensure we don't perform a sign operation for a key type that differs from the request.
 	switch in.Opcode {
-	case OpRSASignMD5SHA1, OpRSASignSHA1, OpRSASignSHA224, OpRSASignSHA256, OpRSASignSHA384, OpRSASignSHA512,
+	case OpRSADecrypt, OpRSADecryptRaw,
+		OpRSASignMD5SHA1, OpRSASignSHA1, OpRSASignSHA224, OpRSASignSHA256, OpRSASignSHA384, OpRSASignSHA512,
 		OpRSAPSSSignSHA256, OpRSAPSSSignSHA384, OpRSAPSSSignSHA512:
 		if _, ok := key.Public().(*rsa.PublicKey); !ok {
 			err = WrappedError{ErrorCryptoFailed, errors.New("request is RSA, but key is not")}
@@ -148,7 +114,29 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 		panic("unreachable")
 	}
 
-	out.Payload, err = key.Sign(rand.Reader, in.Payload, opts)
-	err = wrapError(ErrorCryptoFailed, err)
+	var decryptOpts crypto.DecrypterOpts
+
+	switch in.Opcode {
+	case OpRSADecryptRaw:
+		if rsaKey, ok := key.(*rsa.PrivateKey); ok {
+			out.Payload, err = rsaRawDecrypt(rand.Reader, rsaKey, in.Payload)
+			err = wrapError(ErrorCryptoFailed, err)
+			return
+		}
+
+		decryptOpts = rsaRawDecryptOpts
+		fallthrough
+	case OpRSADecrypt:
+		if rsaKey, ok := key.(crypto.Decrypter); ok {
+			out.Payload, err = rsaKey.Decrypt(rand.Reader, in.Payload, decryptOpts)
+			err = wrapError(ErrorCryptoFailed, err)
+		} else {
+			err = WrappedError{ErrorCryptoFailed, errors.New("key does not implemented crypto.Decrypter")}
+		}
+	default:
+		out.Payload, err = key.Sign(rand.Reader, in.Payload, opts)
+		err = wrapError(ErrorCryptoFailed, err)
+	}
+
 	return
 }
