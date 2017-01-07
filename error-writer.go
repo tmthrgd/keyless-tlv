@@ -3,7 +3,7 @@ package keyless
 import "io"
 
 type errWriter struct {
-	w io.Writer
+	w   io.Writer
 	err error
 }
 
