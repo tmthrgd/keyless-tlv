@@ -39,8 +39,8 @@ func (op *Operation) String() string {
 }
 
 func (op *Operation) Marshal(ow io.Writer) error {
-	lw := &lenWriter{w: ow}
-	w := &errWriter{w: lw}
+	lw := &lenWriter{W: ow}
+	w := &errWriter{W: lw}
 
 	// opcode tag
 	binary.Write(w, binary.BigEndian, uint16(TagOpcode))
@@ -110,8 +110,8 @@ func (op *Operation) Marshal(ow io.Writer) error {
 		w.Write(op.Payload)
 	}
 
-	if !op.SkipPadding && lw.n < PadTo {
-		toPad := PadTo - lw.n
+	if !op.SkipPadding && lw.N < PadTo {
+		toPad := PadTo - lw.N
 
 		// padding tag
 		binary.Write(w, binary.BigEndian, uint16(TagPadding))
@@ -119,7 +119,7 @@ func (op *Operation) Marshal(ow io.Writer) error {
 		w.Write(padding[:toPad])
 	}
 
-	return w.err
+	return w.Err
 }
 
 func (op *Operation) Unmarshal(in []byte) error {
