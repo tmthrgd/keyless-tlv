@@ -152,31 +152,31 @@ func (op *Operation) Unmarshal(in []byte) error {
 				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 32 bytes, was %d bytes", TagDigest, length)}
 			}
 		case TagSNI:
-			op.SNI = in[:length]
+			op.SNI = in[:length:length]
 		case TagClientIP:
 			if length != net.IPv4len && length != net.IPv6len {
 				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 4 or 16 bytes, was %d bytes", TagClientIP, length)}
 			}
 
-			op.ClientIP = in[:length]
+			op.ClientIP = in[:length:length]
 		case TagSKI:
 			if length != sha1.Size {
 				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 20 bytes, was %d bytes", TagSKI, length)}
 			}
 
-			copy(op.SKI[:], in[:length])
+			copy(op.SKI[:], in)
 		case TagServerIP:
 			if length != net.IPv4len && length != net.IPv6len {
 				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 4 or 16 bytes, was %d bytes", TagServerIP, length)}
 			}
 
-			op.ServerIP = in[:length]
+			op.ServerIP = in[:length:length]
 		case TagSigAlgs:
 			if length%2 != 0 {
 				return WrappedError{ErrorFormat, fmt.Errorf("%s should be even number of bytes, was %d bytes", TagSigAlgs, length)}
 			}
 
-			op.SigAlgs = in[:length]
+			op.SigAlgs = in[:length:length]
 		case TagOpcode:
 			if length != 2 {
 				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 2 bytes, was %d bytes", TagOpcode, length)}
@@ -184,7 +184,7 @@ func (op *Operation) Unmarshal(in []byte) error {
 
 			op.Opcode = Op(binary.BigEndian.Uint16(in))
 		case TagPayload:
-			op.Payload = in[:length]
+			op.Payload = in[:length:length]
 		case TagPadding:
 			var v byte
 
@@ -196,9 +196,9 @@ func (op *Operation) Unmarshal(in []byte) error {
 				return WrappedError{ErrorFormat, errors.New("invalid padding")}
 			}
 		case TagOCSPResponse:
-			op.OCSPResponse = in[:length]
+			op.OCSPResponse = in[:length:length]
 		case TagAuthorisation:
-			op.Authorisation = in[:length]
+			op.Authorisation = in[:length:length]
 		case TagECDSACipher:
 			if length != 1 {
 				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", TagECDSACipher, length)}
