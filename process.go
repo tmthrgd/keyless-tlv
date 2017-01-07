@@ -64,22 +64,28 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 			return
 		}
 
+		var opts crypto.DecrypterOpts
+
 		if in.Opcode == OpRSADecryptRaw {
 			if rsaKey, ok := key.(*rsa.PrivateKey); ok {
 				out.Payload, err = rsaRawDecrypt(rand.Reader, rsaKey, in.Payload)
-			} else if rsaKey, ok := key.(crypto.Decrypter); ok {
-				out.Payload, err = rsaKey.Decrypt(rand.Reader, in.Payload, rsaRawDecryptOpts)
-			} else {
-				err = errors.New("key does not implemented crypto.Decrypter")
+				if err != nil {
+					err = WrappedError{ErrorCryptoFailed, err}
+				}
+
+				return
 			}
-		} else {
-			if rsaKey, ok := key.(crypto.Decrypter); ok {
-				out.Payload, err = rsaKey.Decrypt(rand.Reader, in.Payload, nil)
-			} else {
-				err = errors.New("key does not implemented crypto.Decrypter")
-			}
+
+			opts = rsaRawDecryptOpts
 		}
 
+		rsaKey, ok := key.(crypto.Decrypter)
+		if !ok {
+			err = WrappedError{ErrorCryptoFailed, errors.New("key does not implemented crypto.Decrypter")}
+			return
+		}
+
+		out.Payload, err = rsaKey.Decrypt(rand.Reader, in.Payload, opts)
 		if err != nil {
 			err = WrappedError{ErrorCryptoFailed, err}
 		}
