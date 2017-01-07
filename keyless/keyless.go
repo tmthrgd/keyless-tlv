@@ -50,6 +50,9 @@ func main() {
 	var stapleOCSP bool
 	flag.BoolVar(&stapleOCSP, "ocsp", false, "staple OCSP responses")
 
+	var selfSign bool
+	flag.BoolVar(&selfSign, "self-sign", false, "return self signed certificates for unkown server names")
+
 	flag.Parse()
 
 	var conn net.PacketConn
@@ -93,6 +96,14 @@ func main() {
 	}
 
 	getCert := certs.GetCertificate
+	getKey := keys.GetKey
+
+	if selfSign {
+		ss := keyless.NewSelfSigner()
+
+		getCert = (keyless.GetCertChain{getCert, ss.GetCertificate}).GetCertificate
+		getKey = (keyless.GetKeyChain{getKey, ss.GetKey}).GetKey
+	}
 
 	if stapleOCSP {
 		ocsp := keyless.NewOCSPRequester(getCert)
@@ -101,7 +112,7 @@ func main() {
 
 	handler := &keyless.RequestHandler{
 		GetCert: getCert,
-		GetKey:  keys.GetKey,
+		GetKey:  getKey,
 
 		IsAuthorised: auths.IsAuthorised,
 	}
