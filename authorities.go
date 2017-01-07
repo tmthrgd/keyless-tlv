@@ -18,8 +18,8 @@ const (
 )
 
 type authCacheKey struct {
-	Authorisation string
-	PublicKey     string
+	Authorisation [8+ed25519.SignatureSize]byte
+	PublicKey     [ed25519.PublicKeySize]byte
 }
 
 type Authorities struct {
@@ -64,10 +64,9 @@ func (a *Authorities) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
 				8+ed25519.SignatureSize, len(op.Authorisation))}
 	}
 
-	cacheKey := authCacheKey{
-		Authorisation: string(op.Authorisation),
-		PublicKey:     string(pub),
-	}
+	var cacheKey authCacheKey
+	copy(cacheKey.Authorisation[:], op.Authorisation)
+	copy(cacheKey.PublicKey[:], pub)
 
 	a.RLock()
 	key, hasKey := a.m[string(op.Authorisation[:8])]
