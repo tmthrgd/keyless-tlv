@@ -24,7 +24,7 @@ func BenchmarkIsAuthorised(b *testing.B) {
 
 	op := &Operation{
 		Authorisation: bytes.Join([][]byte{
-			id[:8],
+			id[:authIDSize],
 			sig,
 		}, nil),
 	}

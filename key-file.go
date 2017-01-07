@@ -13,7 +13,7 @@ func (h *RequestHandler) ReadKeyFile(path string) error {
 		return err
 	}
 
-	const expectedSize = ed25519.PrivateKeySize + 8 + ed25519.SignatureSize
+	const expectedSize = ed25519.PrivateKeySize + authSize
 	if len(keyfile) != expectedSize {
 		return fmt.Errorf("invalid key file: expected length %d, got length %d", expectedSize, len(keyfile))
 	}

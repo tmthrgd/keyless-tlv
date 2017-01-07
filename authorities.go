@@ -12,8 +12,13 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+const (
+	authIDSize = 8
+	authSize   = authIDSize + ed25519.SignatureSize
+)
+
 type authCacheKey struct {
-	Authorisation [8 + ed25519.SignatureSize]byte
+	Authorisation [authSize]byte
 	PublicKey     [ed25519.PublicKeySize]byte
 }
 
@@ -35,7 +40,7 @@ func (a *Authorities) Add(publicKey ed25519.PublicKey) {
 	id := sha256.Sum256(publicKey)
 
 	a.Lock()
-	a.m[string(id[:8])] = publicKey
+	a.m[string(id[:authIDSize])] = publicKey
 	a.Unlock()
 }
 
@@ -43,7 +48,7 @@ func (a *Authorities) Remove(publicKey ed25519.PublicKey) {
 	id := sha256.Sum256(publicKey)
 
 	a.Lock()
-	delete(a.m, string(id[:8]))
+	delete(a.m, string(id[:authIDSize]))
 	a.Unlock()
 }
 
@@ -53,10 +58,10 @@ func (a *Authorities) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
 			errors.New("request does not have a signature")}
 	}
 
-	if len(op.Authorisation) != 8+ed25519.SignatureSize {
+	if len(op.Authorisation) != authSize {
 		return WrappedError{ErrorNotAuthorised,
 			fmt.Errorf("%s should be %d bytes, was %d bytes", TagAuthorisation,
-				8+ed25519.SignatureSize, len(op.Authorisation))}
+				authSize, len(op.Authorisation))}
 	}
 
 	var cacheKey authCacheKey
@@ -64,7 +69,7 @@ func (a *Authorities) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
 	copy(cacheKey.PublicKey[:], pub)
 
 	a.RLock()
-	key, hasKey := a.m[string(op.Authorisation[:8])]
+	key, hasKey := a.m[string(op.Authorisation[:authIDSize])]
 	ok, inCache := a.cache[cacheKey]
 	a.RUnlock()
 
@@ -73,7 +78,7 @@ func (a *Authorities) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
 	}
 
 	if !inCache {
-		ok = ed25519.Verify(key, pub, op.Authorisation[8:])
+		ok = ed25519.Verify(key, pub, op.Authorisation[authIDSize:])
 
 		const (
 			maxCacheSize = 1024
