@@ -138,8 +138,10 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 		}
 	case OpEd25519Sign:
 		if _, ok := key.(ed25519.PrivateKey); !ok {
-			err = WrappedError{ErrorCryptoFailed, errors.New("request is EdDSA, but key is not")}
-			return
+			if _, ok = key.Public().(ed25519.PublicKey); !ok {
+				err = WrappedError{ErrorCryptoFailed, errors.New("request is EdDSA, but key is not")}
+				return
+			}
 		}
 	default:
 		panic("unreachable")
