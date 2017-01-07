@@ -18,7 +18,7 @@ const (
 )
 
 type authCacheKey struct {
-	Authorisation [8+ed25519.SignatureSize]byte
+	Authorisation [8 + ed25519.SignatureSize]byte
 	PublicKey     [ed25519.PublicKeySize]byte
 }
 
