@@ -69,25 +69,18 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 		if in.Opcode == OpRSADecryptRaw {
 			if rsaKey, ok := key.(*rsa.PrivateKey); ok {
 				out.Payload, err = rsaRawDecrypt(rand.Reader, rsaKey, in.Payload)
-				if err != nil {
-					err = WrappedError{ErrorCryptoFailed, err}
-				}
-
+				err = wrapError(ErrorCryptoFailed, err)
 				return
 			}
 
 			opts = rsaRawDecryptOpts
 		}
 
-		rsaKey, ok := key.(crypto.Decrypter)
-		if !ok {
+		if rsaKey, ok := key.(crypto.Decrypter); ok {
+			out.Payload, err = rsaKey.Decrypt(rand.Reader, in.Payload, opts)
+			err = wrapError(ErrorCryptoFailed, err)
+		} else {
 			err = WrappedError{ErrorCryptoFailed, errors.New("key does not implemented crypto.Decrypter")}
-			return
-		}
-
-		out.Payload, err = rsaKey.Decrypt(rand.Reader, in.Payload, opts)
-		if err != nil {
-			err = WrappedError{ErrorCryptoFailed, err}
 		}
 
 		return
@@ -155,9 +148,7 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 		panic("unreachable")
 	}
 
-	if out.Payload, err = key.Sign(rand.Reader, in.Payload, opts); err != nil {
-		err = WrappedError{ErrorCryptoFailed, err}
-	}
-
+	out.Payload, err = key.Sign(rand.Reader, in.Payload, opts)
+	err = wrapError(ErrorCryptoFailed, err)
 	return
 }
