@@ -10,6 +10,8 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+type RSARawDecryptOptions struct{}
+
 var (
 	rsaPSSOptsSHA256 = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA256}
 	rsaPSSOptsSHA384 = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA384}
@@ -61,13 +63,15 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 		}
 
 		if in.Opcode == OpRSADecryptRaw {
-			rsaKey, ok := key.(*rsa.PrivateKey)
-			if !ok {
-				err = WrappedError{ErrorCryptoFailed, errors.New("key is not *rsa.PrivateKey")}
+			if rsaKey, ok := key.(*rsa.PrivateKey); ok {
+				out.Payload, err = rsaRawDecrypt(rand.Reader, rsaKey, in.Payload)
+			} else if rsaKey, ok := key.(crypto.Decrypter); ok {
+				out.Payload, err = rsaKey.Decrypt(rand.Reader, in.Payload, new(RSARawDecryptOptions))
+			} else {
+				err = WrappedError{ErrorCryptoFailed,
+					errors.New("key is not *rsa.PrivateKey and does not implemented rsaRawDecrypter")}
 				return
 			}
-
-			out.Payload, err = rsaRawDecrypt(rand.Reader, rsaKey, in.Payload)
 		} else {
 			rsaKey, ok := key.(crypto.Decrypter)
 			if !ok {
