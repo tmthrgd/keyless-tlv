@@ -23,7 +23,8 @@ var (
 func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 	out = new(Operation)
 
-	var opts crypto.SignerOpts
+	var signOpts crypto.SignerOpts
+	var decryptOpts crypto.DecrypterOpts
 
 	switch in.Opcode {
 	case OpPing:
@@ -48,27 +49,29 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 		}
 
 		return
-	case OpRSADecrypt, OpRSADecryptRaw:
+	case OpRSADecrypt:
+	case OpRSADecryptRaw:
+		decryptOpts = rsaRawDecryptOpts
 	case OpRSASignMD5SHA1, OpECDSASignMD5SHA1:
-		opts = crypto.MD5SHA1
+		signOpts = crypto.MD5SHA1
 	case OpRSASignSHA1, OpECDSASignSHA1:
-		opts = crypto.SHA1
+		signOpts = crypto.SHA1
 	case OpRSASignSHA224, OpECDSASignSHA224:
-		opts = crypto.SHA224
+		signOpts = crypto.SHA224
 	case OpRSASignSHA256, OpECDSASignSHA256:
-		opts = crypto.SHA256
+		signOpts = crypto.SHA256
 	case OpRSASignSHA384, OpECDSASignSHA384:
-		opts = crypto.SHA384
+		signOpts = crypto.SHA384
 	case OpRSASignSHA512, OpECDSASignSHA512:
-		opts = crypto.SHA512
+		signOpts = crypto.SHA512
 	case OpRSAPSSSignSHA256:
-		opts = rsaPSSOptsSHA256
+		signOpts = rsaPSSOptsSHA256
 	case OpRSAPSSSignSHA384:
-		opts = rsaPSSOptsSHA384
+		signOpts = rsaPSSOptsSHA384
 	case OpRSAPSSSignSHA512:
-		opts = rsaPSSOptsSHA512
+		signOpts = rsaPSSOptsSHA512
 	case OpEd25519Sign:
-		opts = crypto.Hash(0)
+		signOpts = crypto.Hash(0)
 	case OpPong, OpResponse, OpError:
 		err = WrappedError{ErrorUnexpectedOpcode, errors.New(in.Opcode.String())}
 		return
@@ -114,8 +117,6 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 		panic("unreachable")
 	}
 
-	var decryptOpts crypto.DecrypterOpts
-
 	switch in.Opcode {
 	case OpRSADecryptRaw:
 		if rsaKey, ok := key.(*rsa.PrivateKey); ok {
@@ -124,7 +125,6 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 			return
 		}
 
-		decryptOpts = rsaRawDecryptOpts
 		fallthrough
 	case OpRSADecrypt:
 		if rsaKey, ok := key.(crypto.Decrypter); ok {
@@ -134,7 +134,7 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 			err = WrappedError{ErrorCryptoFailed, errors.New("key does not implemented crypto.Decrypter")}
 		}
 	default:
-		out.Payload, err = key.Sign(rand.Reader, in.Payload, opts)
+		out.Payload, err = key.Sign(rand.Reader, in.Payload, signOpts)
 		err = wrapError(ErrorCryptoFailed, err)
 	}
 
