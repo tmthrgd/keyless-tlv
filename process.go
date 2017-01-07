@@ -131,25 +131,26 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 	case OpRSADecryptRaw:
 		if rsaKey, ok := key.(*rsa.PrivateKey); ok {
 			out.Payload, err = rsaRawDecrypt(rand.Reader, rsaKey, in.Payload)
-			err = wrapError(ErrorCryptoFailed, err)
-			return
+			break
 		}
 
 		fallthrough
 	case OpRSADecrypt:
 		if decrypter, ok := key.(crypto.Decrypter); ok {
 			out.Payload, err = decrypter.Decrypt(rand.Reader, in.Payload, decryptOpts)
-			err = wrapError(ErrorCryptoFailed, err)
 		} else {
-			err = WrappedError{ErrorCryptoFailed, errors.New("key does not implemented crypto.Decrypter")}
+			err = errors.New("key does not implemented crypto.Decrypter")
 		}
 	default:
 		if signer, ok := key.(crypto.Signer); ok {
 			out.Payload, err = signer.Sign(rand.Reader, in.Payload, signOpts)
-			err = wrapError(ErrorCryptoFailed, err)
 		} else {
-			err = WrappedError{ErrorCryptoFailed, errors.New("key does not implemented crypto.Signer")}
+			err = errors.New("key does not implemented crypto.Signer")
 		}
+	}
+
+	if err != nil {
+		err = WrappedError{ErrorCryptoFailed, err}
 	}
 
 	return

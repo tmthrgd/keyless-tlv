@@ -68,14 +68,6 @@ func (e WrappedError) ErrorCode() Error {
 	return e.Code
 }
 
-func wrapError(code Error, err error) error {
-	if err == nil {
-		return nil
-	}
-
-	return WrappedError{code, err}
-}
-
 func getErrorCode(err error) Error {
 	if err == nil {
 		return 0
