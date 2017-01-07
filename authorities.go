@@ -12,11 +12,6 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-const (
-	maxCacheSize = 1024
-	drainCacheTo = 768
-)
-
 type authCacheKey struct {
 	Authorisation [8 + ed25519.SignatureSize]byte
 	PublicKey     [ed25519.PublicKeySize]byte
@@ -79,6 +74,11 @@ func (a *Authorities) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
 
 	if !inCache {
 		ok = ed25519.Verify(key, pub, op.Authorisation[8:])
+
+		const (
+			maxCacheSize = 1024
+			drainCacheTo = 768
+		)
 
 		a.Lock()
 

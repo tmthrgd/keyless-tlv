@@ -127,25 +127,6 @@ func (c *CertLoader) LoadFromDir(dir string) error {
 	return filepath.Walk(dir, c.walker)
 }
 
-const (
-	// Signature Algorithms for TLS 1.3 (See draft-ietf-tls-tls13-latest, section 4.2.3)
-	sslRSASHA1   = 0x0201
-	sslRSASHA256 = 0x0401
-	sslRSASHA384 = 0x0501
-	sslRSASHA512 = 0x0601
-
-	sslECDSASHA256 = 0x0403
-	sslECDSASHA384 = 0x0503
-	sslECDSASHA512 = 0x0603
-
-	sslRSAPSSSHA256 = 0x0804
-	sslRSAPSSSHA384 = 0x0805
-	sslRSAPSSSHA512 = 0x0806
-
-	sslED25519 = 0x0807
-	sslED448   = 0x0808
-)
-
 func (c *CertLoader) GetCertificate(op *Operation) (cert *Certificate, err error) {
 	var ok bool
 
@@ -169,6 +150,25 @@ func (c *CertLoader) GetCertificate(op *Operation) (cert *Certificate, err error
 	var hasSHA1RSA, hasSHA256RSA, hasSHA256ECDSA, hasSHA384ECDSA bool
 
 	for i := 0; i < len(op.SigAlgs); i += 2 {
+		const (
+			// Signature Algorithms for TLS 1.3 (See draft-ietf-tls-tls13-latest, section 4.2.3)
+			sslRSASHA1   = 0x0201
+			sslRSASHA256 = 0x0401
+			sslRSASHA384 = 0x0501
+			sslRSASHA512 = 0x0601
+
+			sslECDSASHA256 = 0x0403
+			sslECDSASHA384 = 0x0503
+			sslECDSASHA512 = 0x0603
+
+			sslRSAPSSSHA256 = 0x0804
+			sslRSAPSSSHA384 = 0x0805
+			sslRSAPSSSHA512 = 0x0806
+
+			sslED25519 = 0x0807
+			sslED448   = 0x0808
+		)
+
 		switch binary.BigEndian.Uint16(op.SigAlgs[i:]) {
 		case sslRSASHA1:
 			hasSHA1RSA = true

@@ -8,11 +8,6 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-const (
-	HeaderLength            = 8 + ed25519.PublicKeySize + ed25519.SignatureSize
-	HeaderLengthNoSignature = 8
-)
-
 var nilSig [ed25519.SignatureSize]byte
 
 type Header struct {
@@ -40,25 +35,29 @@ func (h *Header) Marshal(op *Operation, priv ed25519.PrivateKey, buf []byte) []b
 		b.Write(nilSig[:]) // signature placeholder
 	}
 
+	hdrLen := b.Len()
+
 	op.Marshal(b)
 
 	out := b.Bytes()
+	binary.BigEndian.PutUint16(out[2:], uint16(b.Len()-hdrLen))
 
-	if h.NoSignature {
-		binary.BigEndian.PutUint16(out[2:], uint16(b.Len()-HeaderLengthNoSignature))
-	} else {
-		binary.BigEndian.PutUint16(out[2:], uint16(b.Len()-HeaderLength))
-
-		locSig := ed25519.Sign(priv, out[HeaderLength:])
-		copy(out[HeaderLength-ed25519.SignatureSize:], locSig)
+	if !h.NoSignature {
+		locSig := ed25519.Sign(priv, out[hdrLen:])
+		copy(out[hdrLen-ed25519.SignatureSize:], locSig)
 	}
 
 	return out
 }
 
 func (h *Header) Unmarshal(in []byte) (rest []byte, err error) {
-	if (h.NoSignature && len(in) < HeaderLengthNoSignature) ||
-		(!h.NoSignature && len(in) < HeaderLength) {
+	const (
+		headerLength            = 8 + ed25519.PublicKeySize + ed25519.SignatureSize
+		headerLengthNoSignature = 8
+	)
+
+	if (h.NoSignature && len(in) < headerLengthNoSignature) ||
+		(!h.NoSignature && len(in) < headerLength) {
 		return nil, errors.New("missing header")
 	}
 
@@ -66,7 +65,7 @@ func (h *Header) Unmarshal(in []byte) (rest []byte, err error) {
 	h.Length = binary.BigEndian.Uint16(in[2:])
 	h.ID = binary.BigEndian.Uint32(in[4:])
 
-	in = in[HeaderLengthNoSignature:]
+	in = in[headerLengthNoSignature:]
 
 	if !h.NoSignature {
 		h.PublicKey, in = in[:ed25519.PublicKeySize:ed25519.PublicKeySize], in[ed25519.PublicKeySize:]
