@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ed25519"
-
-	"github.com/dustin/go-humanize"
 )
 
 type GetCertFunc func(op *Operation) (cert *Certificate, err error)
@@ -101,7 +99,6 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 
 	out = hdr.Marshal(op, privKey, in[:0])
 
-	log.Printf("id: %d, elapsed: %s, request: %s, response: %s", hdr.ID, time.Since(start),
-		humanize.IBytes(uint64(len(in))), humanize.IBytes(uint64(len(out))))
+	log.Printf("id: %d, elapsed: %s, request: %dB, response: %dB", hdr.ID, time.Since(start), len(in), len(out))
 	return
 }
