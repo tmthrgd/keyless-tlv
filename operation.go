@@ -137,7 +137,7 @@ func (op *Operation) Unmarshal(in []byte) error {
 		in = in[4:]
 
 		if int(length) > len(in) {
-			return WrappedError{ErrorFormat, fmt.Errorf("%s length is %dB beyond end of body", tag, int(length)-len(in))}
+			return WrappedError{ErrorFormat, fmt.Errorf("%s length is %d B beyond end of body", tag, int(length)-len(in))}
 		}
 
 		if _, saw := seen[tag]; saw {

@@ -99,6 +99,6 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 
 	out = hdr.Marshal(op, privKey, in[:0])
 
-	log.Printf("id: %d, elapsed: %s, request: %dB, response: %dB", hdr.ID, time.Since(start), len(in), len(out))
+	log.Printf("id: %d, elapsed: %s, request: %d B, response: %d B", hdr.ID, time.Since(start), len(in), len(out))
 	return
 }
