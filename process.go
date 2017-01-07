@@ -68,7 +68,7 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 			} else if rsaKey, ok := key.(crypto.Decrypter); ok {
 				out.Payload, err = rsaKey.Decrypt(rand.Reader, in.Payload, new(RSARawDecryptOptions))
 			} else {
-				err = errors.New("key is not *rsa.PrivateKey and does not implemented crypto.Decrypter")
+				err = errors.New("key does not implemented crypto.Decrypter")
 			}
 		} else {
 			if rsaKey, ok := key.(crypto.Decrypter); ok {
