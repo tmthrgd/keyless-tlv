@@ -1,7 +1,6 @@
 package keyless
 
 import (
-	"bytes"
 	"crypto"
 	"encoding/base64"
 	"errors"
@@ -41,12 +40,8 @@ type RequestHandler struct {
 func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	start := time.Now()
 
-	r := bytes.NewReader(in)
-
 	hdr := Header{NoSignature: h.NoSignature}
-
-	hdrLen, err := hdr.Unmarshal(r)
-	if err != nil {
+	if in, err = hdr.Unmarshal(in); err != nil {
 		return
 	}
 
@@ -55,12 +50,12 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	switch {
 	case hdr.Major != VersionMajor:
 		err = ErrorVersionMismatch
-	case int(hdr.Length) != r.Len():
+	case int(hdr.Length) != len(in):
 		err = WrappedError{ErrorFormat, errors.New("invalid header length")}
-	case !h.NoSignature && !ed25519.Verify(hdr.PublicKey, in[hdrLen:], hdr.Signature):
+	case !h.NoSignature && !ed25519.Verify(hdr.PublicKey, in, hdr.Signature):
 		err = WrappedError{ErrorNotAuthorised, errors.New("invalid signature")}
 	default:
-		err = op.Unmarshal(in[hdrLen:])
+		err = op.Unmarshal(in)
 	}
 
 	if err == nil {

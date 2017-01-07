@@ -3,6 +3,7 @@ package keyless
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 
 	"golang.org/x/crypto/ed25519"
 )
@@ -21,9 +22,6 @@ type Header struct {
 
 	PublicKey ed25519.PublicKey
 	Signature []byte
-
-	pubBuffer [ed25519.PublicKeySize]byte
-	sigBuffer [ed25519.SignatureSize]byte
 
 	NoSignature bool
 }
@@ -58,36 +56,22 @@ func (h *Header) Marshal(op *Operation, priv ed25519.PrivateKey, buf []byte) []b
 	return out
 }
 
-func (h *Header) Unmarshal(r *bytes.Reader) (n int, err error) {
-	if h.Major, err = r.ReadByte(); err != nil {
-		return
+func (h *Header) Unmarshal(in []byte) (rest []byte, err error) {
+	if (h.NoSignature && len(in) < HeaderLengthNoSignature) ||
+		(!h.NoSignature && len(in) < HeaderLength) {
+		return nil, errors.New("missing header")
 	}
 
-	if h.Minor, err = r.ReadByte(); err != nil {
-		return
+	h.Major, h.Minor = in[0], in[1]
+	h.Length = binary.BigEndian.Uint16(in[2:])
+	h.ID = binary.BigEndian.Uint32(in[4:])
+
+	in = in[HeaderLengthNoSignature:]
+
+	if !h.NoSignature {
+		h.PublicKey, in = in[:ed25519.PublicKeySize], in[ed25519.PublicKeySize:]
+		h.Signature, in = in[:ed25519.SignatureSize], in[ed25519.SignatureSize:]
 	}
 
-	if err = binary.Read(r, binary.BigEndian, &h.Length); err != nil {
-		return
-	}
-
-	if err = binary.Read(r, binary.BigEndian, &h.ID); err != nil {
-		return
-	}
-
-	if h.NoSignature {
-		return HeaderLengthNoSignature, nil
-	}
-
-	h.PublicKey, h.Signature = h.pubBuffer[:], h.sigBuffer[:]
-
-	if _, err = r.Read(h.PublicKey); err != nil {
-		return
-	}
-
-	if _, err = r.Read(h.Signature); err != nil {
-		return
-	}
-
-	return HeaderLength, nil
+	return in, nil
 }
