@@ -140,10 +140,6 @@ func BenchmarkRunner(b *testing.B) {
 
 func runner(tb testing.TB) {
 	logger := &loggerWriter{tb}
-	log.SetOutput(logger)
-	defer func() {
-		log.SetOutput(os.Stderr)
-	}()
 
 	keys := NewKeyLoader()
 	certs := NewCertLoader()
@@ -161,6 +157,8 @@ func runner(tb testing.TB) {
 		GetKey:  keys.GetKey,
 
 		IsAuthorised: isAuthorised,
+
+		ErrorLog: log.New(logger, "", log.Lshortfile),
 
 		NoSignature: true,
 		SkipPadding: true,
@@ -252,10 +250,6 @@ func BenchmarkSigning(b *testing.B) {
 
 func signing(tb testing.TB) {
 	logger := &loggerWriter{tb}
-	log.SetOutput(logger)
-	defer func() {
-		log.SetOutput(os.Stderr)
-	}()
 
 	keys := NewKeyLoader()
 	certs := NewCertLoader()
@@ -273,6 +267,8 @@ func signing(tb testing.TB) {
 		GetKey:  keys.GetKey,
 
 		IsAuthorised: isAuthorised,
+
+		ErrorLog: log.New(logger, "", log.Lshortfile),
 
 		NoSignature: true,
 		SkipPadding: true,
