@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -19,6 +20,8 @@ var bufferPool = &sync.Pool{
 		return make([]byte, 0, 2*1024)
 	},
 }
+
+var stdLogger = log.New(os.Stderr, "", log.LstdFlags)
 
 type GetCertFunc func(op *keyless.Operation) (cert *keyless.Certificate, err error)
 type GetKeyFunc func(ski keyless.SKI) (priv crypto.PrivateKey, err error)
@@ -40,12 +43,12 @@ type RequestHandler struct {
 	SkipPadding bool
 }
 
-func (h *RequestHandler) logf(format string, args ...interface{}) {
+func (h *RequestHandler) logger() *log.Logger {
 	if h.ErrorLog != nil {
-		h.ErrorLog.Printf(format, args...)
-	} else {
-		log.Printf(format, args...)
+		return h.ErrorLog
 	}
+
+	return stdLogger
 }
 
 func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
@@ -75,9 +78,9 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 
 	if err == nil {
 		if h.NoSignature {
-			h.logf("id: %d, %v", hdr.ID, op)
+			h.logger().Printf("id: %d, %v", hdr.ID, op)
 		} else {
-			h.logf("id: %d, key: %s, %v", hdr.ID,
+			h.logger().Printf("id: %d, key: %s, %v", hdr.ID,
 				base64.RawStdEncoding.EncodeToString(hdr.PublicKey), op)
 		}
 
@@ -91,7 +94,7 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	}
 
 	if err != nil {
-		h.logf("id: %d, %v", hdr.ID, err)
+		h.logger().Printf("id: %d, %v", hdr.ID, err)
 
 		op.FromError(err)
 		err = nil
@@ -114,7 +117,8 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 
 	out = hdr.Marshal(op, privKey, in[:0])
 
-	h.logf("id: %d, elapsed: %s, request: %d B, response: %d B", hdr.ID, time.Since(start), len(in), len(out))
+	h.logger().Printf("id: %d, elapsed: %s, request: %d B, response: %d B", hdr.ID,
+		time.Since(start), len(in), len(out))
 	return
 }
 
@@ -131,9 +135,9 @@ func (h *RequestHandler) ServePacket(conn net.PacketConn) error {
 		go func(buf []byte, addr net.Addr) {
 			out, err := h.Handle(buf)
 			if err != nil {
-				h.logf("error: %v", err)
+				h.logger().Printf("error: %v", err)
 			} else if _, err = conn.WriteTo(out, addr); err != nil {
-				h.logf("connection error: %v", err)
+				h.logger().Printf("connection error: %v", err)
 			}
 
 			for i := range out {
