@@ -11,7 +11,7 @@ func (any AnyIsAuthorised) IsAuthorised(pub ed25519.PublicKey, op *Operation) er
 		}
 	}
 
-	return nil
+	return ErrorNotAuthorised
 }
 
 type AllIsAuthorised []IsAuthorisedFunc
