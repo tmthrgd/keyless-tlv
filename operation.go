@@ -219,3 +219,15 @@ func (op *Operation) FromError(err error) {
 	}
 	binary.BigEndian.PutUint16(op.Payload, uint16(getErrorCode(err)))
 }
+
+func (op *Operation) ToError() Error {
+	if op.Opcode != OpError {
+		return 0
+	}
+
+	if len(op.Payload) != 2 {
+		return ErrorInternal
+	}
+
+	return Error(binary.BigEndian.Uint16(op.Payload))
+}
