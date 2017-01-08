@@ -25,6 +25,11 @@ import (
 	"github.com/tmthrgd/keyless"
 )
 
+var (
+	rsaPSSKeySKI = keyless.SKI{0xf8, 0x8c, 0x1f, 0xd9, 0x90, 0xbb, 0x15, 0x9e, 0x26, 0xa2, 0xbb, 0x3c, 0x59, 0x64, 0x9f, 0xf5, 0x69, 0xea, 0xda, 0xad}
+	ecdsaKeySKI  = keyless.SKI{0x00, 0x82, 0x62, 0x7c, 0x92, 0xe8, 0xc4, 0x6c, 0x8c, 0x05, 0x71, 0x3f, 0x0a, 0x70, 0xeb, 0x2e, 0x09, 0xf9, 0x63, 0xc1}
+)
+
 func fromHexChar(c byte) (b byte, skip bool, ok bool) {
 	switch {
 	case '0' <= c && c <= '9':
@@ -237,7 +242,6 @@ func runBenchmarkCase(b *testing.B, path string, handler *RequestHandler) {
 	}
 }
 
-/* This is all rather hideous below, but it works! */
 func TestSigning(t *testing.T) {
 	signing(t)
 }
@@ -317,9 +321,9 @@ func signing(tb testing.TB) {
 				var ski keyless.SKI
 
 				if j == 1 {
-					ski = keyless.SKI{0xf8, 0x8c, 0x1f, 0xd9, 0x90, 0xbb, 0x15, 0x9e, 0x26, 0xa2, 0xbb, 0x3c, 0x59, 0x64, 0x9f, 0xf5, 0x69, 0xea, 0xda, 0xad}
+					ski = rsaPSSKeySKI
 				} else {
-					ski = keyless.SKI{0x00, 0x82, 0x62, 0x7c, 0x92, 0xe8, 0xc4, 0x6c, 0x8c, 0x05, 0x71, 0x3f, 0x0a, 0x70, 0xeb, 0x2e, 0x09, 0xf9, 0x63, 0xc1}
+					ski = ecdsaKeySKI
 				}
 
 				priv, err := keys.GetKey(ski)
@@ -343,69 +347,54 @@ func signing(tb testing.TB) {
 }
 
 func generateSigningRequest(idx byte, h crypto.Hash, ecdsaOrPSS bool) ([]byte, []byte, error) {
-	var opcode keyless.Op
+	op := &keyless.Operation{SkipPadding: true}
+
 	switch h {
 	case crypto.MD5SHA1:
-		opcode = keyless.OpRSASignMD5SHA1
+		op.Opcode = keyless.OpRSASignMD5SHA1
 	case crypto.SHA1:
-		opcode = keyless.OpRSASignSHA1
+		op.Opcode = keyless.OpRSASignSHA1
 	case crypto.SHA224:
-		opcode = keyless.OpRSASignSHA224
+		op.Opcode = keyless.OpRSASignSHA224
 	case crypto.SHA256:
-		opcode = keyless.OpRSASignSHA256
+		op.Opcode = keyless.OpRSASignSHA256
 	case crypto.SHA384:
-		opcode = keyless.OpRSASignSHA384
+		op.Opcode = keyless.OpRSASignSHA384
 	case crypto.SHA512:
-		opcode = keyless.OpRSASignSHA512
+		op.Opcode = keyless.OpRSASignSHA512
 	default:
 		return nil, nil, errors.New("invalid hash")
 	}
 
 	if ecdsaOrPSS {
-		opcode |= keyless.Op(0x30) // RSA-PSS
+		op.Opcode |= keyless.Op(0x30) // RSA-PSS
 	} else {
-		opcode |= keyless.Op(0x10) // ECDSA
+		op.Opcode |= keyless.Op(0x10) // ECDSA
 	}
-
-	var ski keyless.SKI
 
 	if ecdsaOrPSS {
-		ski = keyless.SKI{0xf8, 0x8c, 0x1f, 0xd9, 0x90, 0xbb, 0x15, 0x9e, 0x26, 0xa2, 0xbb, 0x3c, 0x59, 0x64, 0x9f, 0xf5, 0x69, 0xea, 0xda, 0xad}
+		op.SKI = rsaPSSKeySKI
 	} else {
-		ski = keyless.SKI{0x00, 0x82, 0x62, 0x7c, 0x92, 0xe8, 0xc4, 0x6c, 0x8c, 0x05, 0x71, 0x3f, 0x0a, 0x70, 0xeb, 0x2e, 0x09, 0xf9, 0x63, 0xc1}
+		op.SKI = ecdsaKeySKI
 	}
-
-	var hash []byte
 
 	if h == crypto.MD5SHA1 {
 		h1, h2 := crypto.MD5.New(), crypto.SHA1.New()
 		h1.Write([]byte("test"))
 		h2.Write([]byte("test"))
-		hash = bytes.Join([][]byte{h1.Sum(nil), h2.Sum(nil)}, nil)
+		op.Payload = bytes.Join([][]byte{h1.Sum(nil), h2.Sum(nil)}, nil)
 	} else {
 		hh := h.New()
 		hh.Write([]byte("test"))
-		hash = hh.Sum(nil)
+		op.Payload = hh.Sum(nil)
 	}
 
-	return hash, bytes.Join([][]byte{
-		[]byte{
-			0x02, 0x00, // version
-			0x00, 0x22 + byte(len(hash)), // length
-			0x00, 0x00, 0x00, idx, // id
-			0x00, 0x11, // opcode tag
-			0x00, 0x02, // length
-			0x00, byte(opcode), // opcode
-			0x00, 0x04, // ski tag
-			0x00, 0x14, // length
-		},
-		ski[:],
-		[]byte{
-			0x00, 0x12, // payload tag
-			0x00, byte(len(hash)), // length
-		},
-		hash,
-	}, nil), nil
+	hdr := &keyless.Header{
+		ID: uint32(idx),
+
+		NoSignature: true,
+	}
+	return op.Payload, hdr.Marshal(op, nil, nil), nil
 }
 
 func runTestSigningCase(t *testing.T, idx byte, h crypto.Hash, ecdsaOrPSS bool, pub crypto.PublicKey, handler *RequestHandler) {
@@ -414,50 +403,44 @@ func runTestSigningCase(t *testing.T, idx byte, h crypto.Hash, ecdsaOrPSS bool, 
 		t.Fatal(err)
 	}
 
-	expected1 := []byte{
-		0x02, 0x00, // version
-		0x00, /*xx*/ // length
-	}
-	expected2 := []byte{
-		0x00, 0x00, 0x00, byte(idx), // id
-		0x00, 0x11, // opcode tag
-		0x00, 0x02, // length
-		0x00, 0xf0, // response
-		0x00, 0x12, // payload tag
-		0x00, /*xx*/ // length
-	}
-
 	t.Logf("-> %x", req)
-	t.Logf("<- %02xxx%02xxx...", expected1, expected2)
+	t.Logf("<- 020000xx000000%02x0011000200f0001200xx...", idx)
 
 	got, err := handler.Handle(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !bytes.HasPrefix(got, expected1) ||
-		!bytes.HasPrefix(got[len(expected1)+1:], expected2) {
-		t.Error("invalid response")
-		t.Logf("expected: %02xxx%02xxx...", expected1, expected2)
-		t.Logf("got:      %02x", got)
-		t.Fail()
+	hdr := &keyless.Header{NoSignature: true}
+
+	body, err := hdr.Unmarshal(got)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	fr := len(expected1) + 1 + len(expected2)
-	if int(got[fr]) != len(got)-fr-1 {
-		t.Fatalf("invalid length, expected %d, got %d", len(got)-fr-1, got[fr])
+	switch {
+	case hdr.Major != keyless.VersionMajor:
+		t.Fatal(keyless.ErrorVersionMismatch)
+	case int(hdr.Length) != len(body):
+		t.Fatal(keyless.WrappedError{keyless.ErrorFormat,
+			errors.New("invalid header length")})
+	}
+
+	op := new(keyless.Operation)
+	if err = op.Unmarshal(body); err != nil {
+		t.Fatal(err)
 	}
 
 	var valid bool
 
 	if ecdsaOrPSS {
-		valid = rsa.VerifyPSS(pub.(*rsa.PublicKey), h, hash, got[fr+1:], &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, h}) == nil
+		valid = rsa.VerifyPSS(pub.(*rsa.PublicKey), h, hash, op.Payload, &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, h}) == nil
 	} else {
 		var sig struct {
 			R, S *big.Int
 		}
 
-		if _, err := asn1.Unmarshal(got[fr+1:], &sig); err != nil {
+		if _, err := asn1.Unmarshal(op.Payload, &sig); err != nil {
 			t.Fatal(err)
 		}
 
