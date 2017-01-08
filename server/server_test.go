@@ -363,9 +363,9 @@ func generateSigningRequest(idx byte, h crypto.Hash, ecdsaOrPSS bool) ([]byte, [
 	}
 
 	if ecdsaOrPSS {
-		op.Opcode |= keyless.Op(0x30) // RSA-PSS
+		op.Opcode |= keyless.Op(0x0030) // RSA-PSS
 	} else {
-		op.Opcode |= keyless.Op(0x10) // ECDSA
+		op.Opcode |= keyless.Op(0x0010) // ECDSA
 	}
 
 	if ecdsaOrPSS {
