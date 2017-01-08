@@ -27,8 +27,18 @@ type RequestHandler struct {
 
 	IsAuthorised keyless.IsAuthorisedFunc
 
+	ErrorLog *log.Logger
+
 	NoSignature bool
 	SkipPadding bool
+}
+
+func (h *RequestHandler) logf(format string, args ...interface{}) {
+	if h.ErrorLog != nil {
+		h.ErrorLog.Printf(format, args...)
+	} else {
+		log.Printf(format, args...)
+	}
 }
 
 func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
@@ -58,9 +68,9 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 
 	if err == nil {
 		if h.NoSignature {
-			log.Printf("id: %d, %v", hdr.ID, op)
+			h.logf("id: %d, %v", hdr.ID, op)
 		} else {
-			log.Printf("id: %d, key: %s, %v", hdr.ID,
+			h.logf("id: %d, key: %s, %v", hdr.ID,
 				base64.RawStdEncoding.EncodeToString(hdr.PublicKey), op)
 		}
 
@@ -74,7 +84,7 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	}
 
 	if err != nil {
-		log.Printf("id: %d, %v", hdr.ID, err)
+		h.logf("id: %d, %v", hdr.ID, err)
 
 		op.FromError(err)
 		err = nil
@@ -97,6 +107,6 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 
 	out = hdr.Marshal(op, privKey, in[:0])
 
-	log.Printf("id: %d, elapsed: %s, request: %d B, response: %d B", hdr.ID, time.Since(start), len(in), len(out))
+	h.logf("id: %d, elapsed: %s, request: %d B, response: %d B", hdr.ID, time.Since(start), len(in), len(out))
 	return
 }
