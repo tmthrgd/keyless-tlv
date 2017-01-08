@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"sync"
 	"syscall"
 
 	"golang.org/x/crypto/acme"
@@ -22,12 +21,6 @@ import (
 	"github.com/tmthrgd/keyless"
 	"github.com/tmthrgd/keyless/server"
 )
-
-var bufferPool = &sync.Pool{
-	New: func() interface{} {
-		return make([]byte, 0, 2*1024)
-	},
-}
 
 func publicKeyString(k ed25519.PublicKey) string {
 	return base64.RawStdEncoding.EncodeToString(k)
@@ -179,34 +172,5 @@ func main() {
 
 	log.Printf("listening on %s with key %s\n", addr, publicKeyString(handler.PublicKey))
 
-	for {
-		buf := bufferPool.Get().([]byte)
-
-		n, addr, err := conn.ReadFrom(buf[:cap(buf)])
-		if err != nil {
-			bufferPool.Put(buf[:0])
-
-			log.Println(err)
-			continue
-		}
-
-		go func(buf []byte, addr net.Addr) {
-			out, err := handler.Handle(buf)
-			if err != nil {
-				log.Printf("error: %v\n", err)
-			} else if _, err = conn.WriteTo(out, addr); err != nil {
-				log.Printf("connection error: %v\n", err)
-			}
-
-			for i := range out {
-				out[i] = 0
-			}
-
-			for i := range buf {
-				buf[i] = 0
-			}
-
-			bufferPool.Put(buf[:0])
-		}(buf[:n], addr)
-	}
+	panic(handler.ServePacket(conn))
 }

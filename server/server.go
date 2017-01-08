@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"log"
+	"net"
 	"sync"
 	"time"
 
@@ -12,6 +13,12 @@ import (
 
 	"github.com/tmthrgd/keyless"
 )
+
+var bufferPool = &sync.Pool{
+	New: func() interface{} {
+		return make([]byte, 0, 2*1024)
+	},
+}
 
 type GetCertFunc func(op *keyless.Operation) (cert *keyless.Certificate, err error)
 type GetKeyFunc func(ski keyless.SKI) (priv crypto.PrivateKey, err error)
@@ -109,4 +116,35 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 
 	h.logf("id: %d, elapsed: %s, request: %d B, response: %d B", hdr.ID, time.Since(start), len(in), len(out))
 	return
+}
+
+func (h *RequestHandler) ServePacket(conn net.PacketConn) error {
+	for {
+		buf := bufferPool.Get().([]byte)
+
+		n, addr, err := conn.ReadFrom(buf[:cap(buf)])
+		if err != nil {
+			bufferPool.Put(buf[:0])
+			return err
+		}
+
+		go func(buf []byte, addr net.Addr) {
+			out, err := h.Handle(buf)
+			if err != nil {
+				h.logf("error: %v", err)
+			} else if _, err = conn.WriteTo(out, addr); err != nil {
+				h.logf("connection error: %v", err)
+			}
+
+			for i := range out {
+				out[i] = 0
+			}
+
+			for i := range buf {
+				buf[i] = 0
+			}
+
+			bufferPool.Put(buf[:0])
+		}(buf[:n], addr)
+	}
 }
