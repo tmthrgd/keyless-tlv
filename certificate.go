@@ -39,3 +39,48 @@ func (cert *Certificate) SetPayloadFromX509s(x509s []*x509.Certificate) {
 	cert.Payload = b.Bytes()
 	return
 }
+
+func (cert *Certificate) PayloadToDER() ([][]byte, error) {
+	ders := make([][]byte, 0, 4)
+	payload := cert.Payload
+
+	for len(payload) >= 2 {
+		l := binary.BigEndian.Uint16(payload)
+		if int(l) > len(payload)-2 {
+			return nil, ErrorFormat
+		}
+
+		ders, payload = append(ders, payload[2:2+l]), payload[2+l:]
+	}
+
+	if len(payload) != 0 {
+		return nil, ErrorFormat
+	}
+
+	return ders, nil
+}
+
+func (cert *Certificate) PayloadToX509s() ([]*x509.Certificate, error) {
+	x509s := make([]*x509.Certificate, 0, 4)
+	payload := cert.Payload
+
+	for len(payload) >= 2 {
+		l := binary.BigEndian.Uint16(payload)
+		if int(l) > len(payload)-2 {
+			return nil, ErrorFormat
+		}
+
+		cert, err := x509.ParseCertificate(payload[2 : 2+l])
+		if err != nil {
+			return nil, err
+		}
+
+		x509s, payload = append(x509s, cert), payload[2+l:]
+	}
+
+	if len(payload) != 0 {
+		return nil, ErrorFormat
+	}
+
+	return x509s, nil
+}

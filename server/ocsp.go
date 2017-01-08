@@ -2,8 +2,6 @@ package server
 
 import (
 	"bytes"
-	"crypto/x509"
-	"encoding/binary"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -100,50 +98,21 @@ func (or *OCSPRequester) GetCertificate(op *keyless.Operation) (cert *keyless.Ce
 func (or *OCSPRequester) requestOCSP(cert *keyless.Certificate) (entry *ocspCacheEntry, err error) {
 	entry = new(ocspCacheEntry)
 
-	switch len(cert.Payload) {
-	case 0:
-		return
-	case 1:
-		err = keyless.ErrorInternal
-		return
-	}
+	x509s, err := cert.PayloadToX509s()
+	if err != nil || len(x509s) < 2 {
+		if err == keyless.ErrorFormat {
+			err = keyless.ErrorInternal
+		}
 
-	l, p := int(binary.BigEndian.Uint16(cert.Payload)), cert.Payload[2:]
-
-	switch {
-	case len(p) == l:
-		return
-	case len(p) < l+2:
-		err = keyless.ErrorInternal
 		return
 	}
 
-	issuedBytes, p := p[:l], p[l:]
-	l, p = int(binary.BigEndian.Uint16(p)), p[2:]
-
-	if len(p) < l {
-		err = keyless.ErrorInternal
-		return
-	}
-
-	issuerBytes := p[:l]
-
-	issuedCert, err := x509.ParseCertificate(issuedBytes)
-	if err != nil || len(issuedCert.OCSPServer) == 0 {
-		return
-	}
-
-	issuerCert, err := x509.ParseCertificate(issuerBytes)
+	ocspReq, err := ocsp.CreateRequest(x509s[0], x509s[1], or.OCSPRequestOptions)
 	if err != nil {
 		return
 	}
 
-	ocspReq, err := ocsp.CreateRequest(issuedCert, issuerCert, or.OCSPRequestOptions)
-	if err != nil {
-		return
-	}
-
-	resp, err := http.Post(issuedCert.OCSPServer[0], "application/ocsp-request",
+	resp, err := http.Post(x509s[0].OCSPServer[0], "application/ocsp-request",
 		bytes.NewReader(ocspReq))
 	if err != nil {
 		return
@@ -157,13 +126,13 @@ func (or *OCSPRequester) requestOCSP(cert *keyless.Certificate) (entry *ocspCach
 		return
 	}
 
-	ocspResp, err := ocsp.ParseResponse(ocspRespBytes, issuerCert)
+	ocspResp, err := ocsp.ParseResponse(ocspRespBytes, x509s[1])
 	if err != nil {
 		return
 	}
 
 	if ocspResp.Certificate == nil {
-		if err = ocspResp.CheckSignatureFrom(issuerCert); err != nil {
+		if err = ocspResp.CheckSignatureFrom(x509s[1]); err != nil {
 			return
 		}
 	}
