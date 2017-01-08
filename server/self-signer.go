@@ -1,4 +1,4 @@
-package keyless
+package server
 
 import (
 	"crypto"
@@ -10,42 +10,44 @@ import (
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/tmthrgd/keyless"
 )
 
 var serialNumberMax = new(big.Int).Lsh(big.NewInt(1), 128)
 
 type SelfSigner struct {
 	sync.RWMutex
-	keys  map[SKI]crypto.PrivateKey
-	certs map[SKI]*Certificate
-	snis  map[string]*Certificate
+	keys  map[keyless.SKI]crypto.PrivateKey
+	certs map[keyless.SKI]*keyless.Certificate
+	snis  map[string]*keyless.Certificate
 
 	once map[string]*sync.Once
 }
 
 func NewSelfSigner() *SelfSigner {
 	return &SelfSigner{
-		keys:  make(map[SKI]crypto.PrivateKey),
-		certs: make(map[SKI]*Certificate),
-		snis:  make(map[string]*Certificate),
+		keys:  make(map[keyless.SKI]crypto.PrivateKey),
+		certs: make(map[keyless.SKI]*keyless.Certificate),
+		snis:  make(map[string]*keyless.Certificate),
 
 		once: make(map[string]*sync.Once),
 	}
 }
 
-func (ss *SelfSigner) GetKey(ski SKI) (priv crypto.PrivateKey, err error) {
+func (ss *SelfSigner) GetKey(ski keyless.SKI) (priv crypto.PrivateKey, err error) {
 	ss.RLock()
 	priv, ok := ss.keys[ski]
 	ss.RUnlock()
 
 	if !ok {
-		err = ErrorKeyNotFound
+		err = keyless.ErrorKeyNotFound
 	}
 
 	return
 }
 
-func (ss *SelfSigner) GetCertificate(op *Operation) (cert *Certificate, err error) {
+func (ss *SelfSigner) GetCertificate(op *keyless.Operation) (cert *keyless.Certificate, err error) {
 	var ok bool
 
 	if op.SKI.Valid() {
@@ -54,14 +56,14 @@ func (ss *SelfSigner) GetCertificate(op *Operation) (cert *Certificate, err erro
 		ss.RUnlock()
 
 		if !ok {
-			err = ErrorCertNotFound
+			err = keyless.ErrorCertNotFound
 		}
 
 		return
 	}
 
 	if len(op.SNI) == 0 {
-		err = ErrorCertNotFound
+		err = keyless.ErrorCertNotFound
 		return
 	}
 
@@ -100,13 +102,13 @@ func (ss *SelfSigner) GetCertificate(op *Operation) (cert *Certificate, err erro
 	ss.RUnlock()
 
 	if !ok {
-		err = ErrorInternal
+		err = keyless.ErrorInternal
 	}
 
 	return
 }
 
-func (ss *SelfSigner) generateCertificate(sni []byte) (cert *Certificate, err error) {
+func (ss *SelfSigner) generateCertificate(sni []byte) (cert *keyless.Certificate, err error) {
 	serialNumber, err := rand.Int(rand.Reader, serialNumberMax)
 	if err != nil {
 		return
@@ -139,7 +141,7 @@ func (ss *SelfSigner) generateCertificate(sni []byte) (cert *Certificate, err er
 		return
 	}
 
-	ski, err := GetSKI(&priv.PublicKey)
+	ski, err := keyless.GetSKI(&priv.PublicKey)
 	if err != nil {
 		return
 	}
@@ -149,7 +151,7 @@ func (ss *SelfSigner) generateCertificate(sni []byte) (cert *Certificate, err er
 		return
 	}
 
-	cert = &Certificate{SKI: ski}
+	cert = &keyless.Certificate{SKI: ski}
 	cert.SetPayloadFromDER([][]byte{der})
 
 	ss.Lock()

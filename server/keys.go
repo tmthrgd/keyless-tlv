@@ -1,4 +1,4 @@
-package keyless
+package server
 
 import (
 	"crypto"
@@ -14,28 +14,29 @@ import (
 
 	"github.com/cloudflare/cfssl/helpers"
 	"github.com/cloudflare/cfssl/helpers/derhelpers"
+	"github.com/tmthrgd/keyless"
 )
 
 var keyExt = regexp.MustCompile(`.+\.key`)
 
 type KeyLoader struct {
 	sync.RWMutex
-	skis map[SKI]crypto.PrivateKey
+	skis map[keyless.SKI]crypto.PrivateKey
 }
 
 func NewKeyLoader() *KeyLoader {
 	return &KeyLoader{
-		skis: make(map[SKI]crypto.PrivateKey),
+		skis: make(map[keyless.SKI]crypto.PrivateKey),
 	}
 }
 
-func (k *KeyLoader) GetKey(ski SKI) (priv crypto.PrivateKey, err error) {
+func (k *KeyLoader) GetKey(ski keyless.SKI) (priv crypto.PrivateKey, err error) {
 	k.RLock()
 	priv, ok := k.skis[ski]
 	k.RUnlock()
 
 	if !ok {
-		err = ErrorKeyNotFound
+		err = keyless.ErrorKeyNotFound
 	}
 
 	return
@@ -72,7 +73,7 @@ func (k *KeyLoader) walker(path string, info os.FileInfo, err error) error {
 		}
 	}
 
-	ski, err := GetSKI(priv.Public())
+	ski, err := keyless.GetSKI(priv.Public())
 	if err != nil {
 		return err
 	}

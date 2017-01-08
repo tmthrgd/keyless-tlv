@@ -1,40 +1,12 @@
 package keyless
 
-import (
-	"crypto"
-
-	"golang.org/x/crypto/ed25519"
-)
-
-type GetCertChain []GetCertFunc
-
-func (ch GetCertChain) GetCertificate(op *Operation) (cert *Certificate, err error) {
-	for _, fn := range ch {
-		if cert, err = fn(op); getErrorCode(err) != ErrorCertNotFound {
-			return
-		}
-	}
-
-	return nil, ErrorCertNotFound
-}
-
-type GetKeyChain []GetKeyFunc
-
-func (ch GetKeyChain) GetKey(ski SKI) (priv crypto.PrivateKey, err error) {
-	for _, fn := range ch {
-		if priv, err = fn(ski); getErrorCode(err) != ErrorKeyNotFound {
-			return
-		}
-	}
-
-	return nil, ErrorKeyNotFound
-}
+import "golang.org/x/crypto/ed25519"
 
 type AnyIsAuthorised []IsAuthorisedFunc
 
 func (any AnyIsAuthorised) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
 	for _, fn := range any {
-		if err := fn(pub, op); getErrorCode(err) != ErrorNotAuthorised {
+		if err := fn(pub, op); GetErrorCode(err) != ErrorNotAuthorised {
 			return err
 		}
 	}

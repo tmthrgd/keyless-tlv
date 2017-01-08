@@ -1,4 +1,4 @@
-package keyless
+package server
 
 import (
 	"crypto/ecdsa"
@@ -14,28 +14,29 @@ import (
 	"sync"
 
 	"github.com/cloudflare/cfssl/helpers"
+	"github.com/tmthrgd/keyless"
 )
 
 type certMap struct {
-	sha1RSA, sha256RSA, sha256ECDSA, sha384ECDSA *Certificate
+	sha1RSA, sha256RSA, sha256ECDSA, sha384ECDSA *keyless.Certificate
 }
 
 type CertLoader struct {
 	sync.RWMutex
-	skis      map[SKI]*Certificate
+	skis      map[keyless.SKI]*keyless.Certificate
 	snis      map[string]certMap
 	serverIPs map[string]certMap
 }
 
 func NewCertLoader() *CertLoader {
 	return &CertLoader{
-		skis:      make(map[SKI]*Certificate),
+		skis:      make(map[keyless.SKI]*keyless.Certificate),
 		snis:      make(map[string]certMap),
 		serverIPs: make(map[string]certMap),
 	}
 }
 
-func addCertToMap(m map[string]certMap, key string, cert *Certificate, leaf *x509.Certificate) {
+func addCertToMap(m map[string]certMap, key string, cert *keyless.Certificate, leaf *x509.Certificate) {
 	certs := m[key]
 
 	switch leaf.SignatureAlgorithm {
@@ -96,12 +97,12 @@ func (c *CertLoader) walker(path string, info os.FileInfo, err error) error {
 			pub.Params().Name, x509s[0].SignatureAlgorithm)
 	}
 
-	ski, err := GetSKI(x509s[0].PublicKey)
+	ski, err := keyless.GetSKI(x509s[0].PublicKey)
 	if err != nil {
 		return err
 	}
 
-	cert := &Certificate{SKI: ski}
+	cert := &keyless.Certificate{SKI: ski}
 	cert.SetPayloadFromX509s(x509s)
 
 	c.Lock()
@@ -127,7 +128,7 @@ func (c *CertLoader) LoadFromDir(dir string) error {
 	return filepath.Walk(dir, c.walker)
 }
 
-func (c *CertLoader) GetCertificate(op *Operation) (cert *Certificate, err error) {
+func (c *CertLoader) GetCertificate(op *keyless.Operation) (cert *keyless.Certificate, err error) {
 	var ok bool
 
 	if op.SKI.Valid() {
@@ -136,14 +137,14 @@ func (c *CertLoader) GetCertificate(op *Operation) (cert *Certificate, err error
 		c.RUnlock()
 
 		if !ok {
-			err = ErrorCertNotFound
+			err = keyless.ErrorCertNotFound
 		}
 
 		return
 	}
 
 	if len(op.SNI) == 0 && op.ServerIP == nil {
-		err = ErrorCertNotFound
+		err = keyless.ErrorCertNotFound
 		return
 	}
 
@@ -195,7 +196,7 @@ func (c *CertLoader) GetCertificate(op *Operation) (cert *Certificate, err error
 	c.RUnlock()
 
 	if !ok {
-		err = ErrorCertNotFound
+		err = keyless.ErrorCertNotFound
 	} else if op.SigAlgs != nil {
 		switch {
 		case hasSHA256ECDSA && op.HasECDSACipher && certs.sha256ECDSA != nil:
@@ -213,7 +214,7 @@ func (c *CertLoader) GetCertificate(op *Operation) (cert *Certificate, err error
 		case certs.sha384ECDSA != nil:
 			cert = certs.sha384ECDSA
 		default:
-			err = ErrorCertNotFound
+			err = keyless.ErrorCertNotFound
 		}
 	} else {
 		switch {
@@ -228,7 +229,7 @@ func (c *CertLoader) GetCertificate(op *Operation) (cert *Certificate, err error
 		case certs.sha384ECDSA != nil:
 			cert = certs.sha384ECDSA
 		default:
-			err = ErrorCertNotFound
+			err = keyless.ErrorCertNotFound
 		}
 	}
 

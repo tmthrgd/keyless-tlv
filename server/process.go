@@ -1,4 +1,4 @@
-package keyless
+package server
 
 import (
 	"crypto"
@@ -8,6 +8,8 @@ import (
 	"errors"
 
 	"golang.org/x/crypto/ed25519"
+
+	"github.com/tmthrgd/keyless"
 )
 
 type RSARawDecryptOptions struct{}
@@ -20,15 +22,15 @@ var (
 	rsaPSSOptsSHA512 = &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, crypto.SHA512}
 )
 
-func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
-	out = new(Operation)
+func (h *RequestHandler) Process(in *keyless.Operation) (out *keyless.Operation, err error) {
+	out = new(keyless.Operation)
 
 	var signOpts crypto.SignerOpts
 	var decryptOpts crypto.DecrypterOpts
 
 	switch in.Opcode {
-	case OpPing:
-		out.Opcode = OpPong
+	case keyless.OpPing:
+		out.Opcode = keyless.OpPong
 
 		if in.Payload == nil {
 			out.Payload = make([]byte, 0)
@@ -37,53 +39,53 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 		}
 
 		return
-	case OpGetCertificate:
+	case keyless.OpGetCertificate:
 		if h.GetCert == nil {
-			err = ErrorCertNotFound
+			err = keyless.ErrorCertNotFound
 			return
 		}
 
-		var cert *Certificate
+		var cert *keyless.Certificate
 		if cert, err = h.GetCert(in); err == nil {
 			out.SKI, out.Payload, out.OCSPResponse = cert.SKI, cert.Payload, cert.OCSP
 		}
 
 		return
-	case OpRSADecrypt:
-	case OpRSADecryptRaw:
+	case keyless.OpRSADecrypt:
+	case keyless.OpRSADecryptRaw:
 		decryptOpts = rsaRawDecryptOpts
-	case OpRSASignMD5SHA1, OpECDSASignMD5SHA1:
+	case keyless.OpRSASignMD5SHA1, keyless.OpECDSASignMD5SHA1:
 		signOpts = crypto.MD5SHA1
-	case OpRSASignSHA1, OpECDSASignSHA1:
+	case keyless.OpRSASignSHA1, keyless.OpECDSASignSHA1:
 		signOpts = crypto.SHA1
-	case OpRSASignSHA224, OpECDSASignSHA224:
+	case keyless.OpRSASignSHA224, keyless.OpECDSASignSHA224:
 		signOpts = crypto.SHA224
-	case OpRSASignSHA256, OpECDSASignSHA256:
+	case keyless.OpRSASignSHA256, keyless.OpECDSASignSHA256:
 		signOpts = crypto.SHA256
-	case OpRSASignSHA384, OpECDSASignSHA384:
+	case keyless.OpRSASignSHA384, keyless.OpECDSASignSHA384:
 		signOpts = crypto.SHA384
-	case OpRSASignSHA512, OpECDSASignSHA512:
+	case keyless.OpRSASignSHA512, keyless.OpECDSASignSHA512:
 		signOpts = crypto.SHA512
-	case OpRSAPSSSignSHA256:
+	case keyless.OpRSAPSSSignSHA256:
 		signOpts = rsaPSSOptsSHA256
-	case OpRSAPSSSignSHA384:
+	case keyless.OpRSAPSSSignSHA384:
 		signOpts = rsaPSSOptsSHA384
-	case OpRSAPSSSignSHA512:
+	case keyless.OpRSAPSSSignSHA512:
 		signOpts = rsaPSSOptsSHA512
-	case OpEd25519Sign:
+	case keyless.OpEd25519Sign:
 		signOpts = crypto.Hash(0)
-	case OpPong, OpResponse, OpError:
-		err = WrappedError{ErrorUnexpectedOpcode, errors.New(in.Opcode.String())}
+	case keyless.OpPong, keyless.OpResponse, keyless.OpError:
+		err = keyless.WrappedError{keyless.ErrorUnexpectedOpcode, errors.New(in.Opcode.String())}
 		return
-	case OpActivate:
+	case keyless.OpActivate:
 		fallthrough
 	default:
-		err = WrappedError{ErrorBadOpcode, errors.New(in.Opcode.String())}
+		err = keyless.WrappedError{keyless.ErrorBadOpcode, errors.New(in.Opcode.String())}
 		return
 	}
 
 	if h.GetKey == nil || !in.SKI.Valid() {
-		err = ErrorKeyNotFound
+		err = keyless.ErrorKeyNotFound
 		return
 	}
 
@@ -98,28 +100,34 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 
 	publicInt, ok := key.(publicKeyMethod)
 	if !ok {
-		err = WrappedError{ErrorCryptoFailed, errors.New("key does not implemented crypto.Decrypter or crypto.Signer")}
+		err = keyless.WrappedError{keyless.ErrorCryptoFailed,
+			errors.New("key does not implemented crypto.Decrypter or crypto.Signer")}
 		return
 	}
 
 	// Ensure we don't perform a sign operation for a key type that differs from the request.
 	switch in.Opcode {
-	case OpRSADecrypt, OpRSADecryptRaw,
-		OpRSASignMD5SHA1, OpRSASignSHA1, OpRSASignSHA224, OpRSASignSHA256, OpRSASignSHA384, OpRSASignSHA512,
-		OpRSAPSSSignSHA256, OpRSAPSSSignSHA384, OpRSAPSSSignSHA512:
+	case keyless.OpRSADecrypt, keyless.OpRSADecryptRaw,
+		keyless.OpRSASignMD5SHA1, keyless.OpRSASignSHA1, keyless.OpRSASignSHA224,
+		keyless.OpRSASignSHA256, keyless.OpRSASignSHA384, keyless.OpRSASignSHA512,
+		keyless.OpRSAPSSSignSHA256, keyless.OpRSAPSSSignSHA384, keyless.OpRSAPSSSignSHA512:
 		if _, ok := publicInt.Public().(*rsa.PublicKey); !ok {
-			err = WrappedError{ErrorCryptoFailed, errors.New("request is RSA, but key is not")}
+			err = keyless.WrappedError{keyless.ErrorCryptoFailed,
+				errors.New("request is RSA, but key is not")}
 			return
 		}
-	case OpECDSASignMD5SHA1, OpECDSASignSHA1, OpECDSASignSHA224, OpECDSASignSHA256, OpECDSASignSHA384, OpECDSASignSHA512:
+	case keyless.OpECDSASignMD5SHA1, keyless.OpECDSASignSHA1, keyless.OpECDSASignSHA224,
+		keyless.OpECDSASignSHA256, keyless.OpECDSASignSHA384, keyless.OpECDSASignSHA512:
 		if _, ok := publicInt.Public().(*ecdsa.PublicKey); !ok {
-			err = WrappedError{ErrorCryptoFailed, errors.New("request is ECDSA, but key is not")}
+			err = keyless.WrappedError{keyless.ErrorCryptoFailed,
+				errors.New("request is ECDSA, but key is not")}
 			return
 		}
-	case OpEd25519Sign:
+	case keyless.OpEd25519Sign:
 		if _, ok := key.(ed25519.PrivateKey); !ok {
 			if _, ok = publicInt.Public().(ed25519.PublicKey); !ok {
-				err = WrappedError{ErrorCryptoFailed, errors.New("request is EdDSA, but key is not")}
+				err = keyless.WrappedError{keyless.ErrorCryptoFailed,
+					errors.New("request is EdDSA, but key is not")}
 				return
 			}
 		}
@@ -128,14 +136,14 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 	}
 
 	switch in.Opcode {
-	case OpRSADecryptRaw:
+	case keyless.OpRSADecryptRaw:
 		if rsaKey, ok := key.(*rsa.PrivateKey); ok {
 			out.Payload, err = rsaRawDecrypt(rand.Reader, rsaKey, in.Payload)
 			break
 		}
 
 		fallthrough
-	case OpRSADecrypt:
+	case keyless.OpRSADecrypt:
 		if decrypter, ok := key.(crypto.Decrypter); ok {
 			out.Payload, err = decrypter.Decrypt(rand.Reader, in.Payload, decryptOpts)
 		} else {
@@ -150,7 +158,7 @@ func (h *RequestHandler) Process(in *Operation) (out *Operation, err error) {
 	}
 
 	if err != nil {
-		err = WrappedError{ErrorCryptoFailed, err}
+		err = keyless.WrappedError{keyless.ErrorCryptoFailed, err}
 	}
 
 	return

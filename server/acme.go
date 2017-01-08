@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package keyless
+package server
 
 import (
 	"bytes"
@@ -19,6 +19,8 @@ import (
 
 	"golang.org/x/crypto/acme"
 	"golang.org/x/net/context"
+
+	"github.com/tmthrgd/keyless"
 )
 
 var (
@@ -28,9 +30,9 @@ var (
 
 type ACMEClient struct {
 	sync.RWMutex
-	keys  map[SKI]crypto.PrivateKey
-	certs map[SKI]*Certificate
-	snis  map[string]*Certificate
+	keys  map[keyless.SKI]crypto.PrivateKey
+	certs map[keyless.SKI]*keyless.Certificate
+	snis  map[string]*keyless.Certificate
 
 	once map[string]*sync.Once
 
@@ -42,9 +44,9 @@ type ACMEClient struct {
 
 func NewACMEClient(client *acme.Client) *ACMEClient {
 	return &ACMEClient{
-		keys:  make(map[SKI]crypto.PrivateKey),
-		certs: make(map[SKI]*Certificate),
-		snis:  make(map[string]*Certificate),
+		keys:  make(map[keyless.SKI]crypto.PrivateKey),
+		certs: make(map[keyless.SKI]*keyless.Certificate),
+		snis:  make(map[string]*keyless.Certificate),
 
 		once: make(map[string]*sync.Once),
 
@@ -56,19 +58,19 @@ func NewACMEClient(client *acme.Client) *ACMEClient {
 	}
 }
 
-func (ac *ACMEClient) GetKey(ski SKI) (priv crypto.PrivateKey, err error) {
+func (ac *ACMEClient) GetKey(ski keyless.SKI) (priv crypto.PrivateKey, err error) {
 	ac.RLock()
 	priv, ok := ac.keys[ski]
 	ac.RUnlock()
 
 	if !ok {
-		err = ErrorKeyNotFound
+		err = keyless.ErrorKeyNotFound
 	}
 
 	return
 }
 
-func (ac *ACMEClient) GetCertificate(op *Operation) (cert *Certificate, err error) {
+func (ac *ACMEClient) GetCertificate(op *keyless.Operation) (cert *keyless.Certificate, err error) {
 	var ok bool
 
 	if op.SKI.Valid() {
@@ -77,14 +79,14 @@ func (ac *ACMEClient) GetCertificate(op *Operation) (cert *Certificate, err erro
 		ac.RUnlock()
 
 		if !ok {
-			err = ErrorCertNotFound
+			err = keyless.ErrorCertNotFound
 		}
 
 		return
 	}
 
 	if len(op.SNI) == 0 {
-		err = ErrorCertNotFound
+		err = keyless.ErrorCertNotFound
 		return
 	}
 
@@ -96,7 +98,7 @@ func (ac *ACMEClient) GetCertificate(op *Operation) (cert *Certificate, err erro
 	case ok:
 		return
 	case bytes.HasSuffix(op.SNI, []byte(".acme.invalid")):
-		err = ErrorCertNotFound
+		err = keyless.ErrorCertNotFound
 		return
 	}
 
@@ -127,13 +129,13 @@ func (ac *ACMEClient) GetCertificate(op *Operation) (cert *Certificate, err erro
 	ac.RUnlock()
 
 	if !ok {
-		err = ErrorInternal
+		err = keyless.ErrorInternal
 	}
 
 	return
 }
 
-func (ac *ACMEClient) requestCertificate(sni []byte) (cert *Certificate, err error) {
+func (ac *ACMEClient) requestCertificate(sni []byte) (cert *keyless.Certificate, err error) {
 	ctx := ac.GetContext(sni)
 
 	if err = ac.verify(ctx, sni); err != nil {
@@ -168,12 +170,12 @@ func (ac *ACMEClient) requestCertificate(sni []byte) (cert *Certificate, err err
 		return
 	}
 
-	ski, err := GetSKI(&priv.PublicKey)
+	ski, err := keyless.GetSKI(&priv.PublicKey)
 	if err != nil {
 		return
 	}
 
-	cert = &Certificate{SKI: ski}
+	cert = &keyless.Certificate{SKI: ski}
 	cert.SetPayloadFromDER(der)
 
 	ac.Lock()
@@ -231,12 +233,12 @@ challenges:
 		return errors.New("invalid private key")
 	}
 
-	ski, err := GetSKI(priv.Public())
+	ski, err := keyless.GetSKI(priv.Public())
 	if err != nil {
 		return err
 	}
 
-	cert2 := &Certificate{SKI: ski}
+	cert2 := &keyless.Certificate{SKI: ski}
 	cert2.SetPayloadFromDER(cert.Certificate)
 
 	ac.Lock()

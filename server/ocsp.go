@@ -1,4 +1,4 @@
-package keyless
+package server
 
 import (
 	"bytes"
@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ocsp"
+
+	"github.com/tmthrgd/keyless"
 )
 
 type ocspCacheEntry struct {
@@ -23,8 +25,8 @@ func (e *ocspCacheEntry) Valid() bool {
 
 type OCSPRequester struct {
 	sync.RWMutex
-	cache map[SKI]*ocspCacheEntry
-	once  map[SKI]*sync.Once
+	cache map[keyless.SKI]*ocspCacheEntry
+	once  map[keyless.SKI]*sync.Once
 
 	getCertificate GetCertFunc
 
@@ -33,14 +35,14 @@ type OCSPRequester struct {
 
 func NewOCSPRequester(getCertificate GetCertFunc) *OCSPRequester {
 	return &OCSPRequester{
-		cache: make(map[SKI]*ocspCacheEntry),
-		once:  make(map[SKI]*sync.Once),
+		cache: make(map[keyless.SKI]*ocspCacheEntry),
+		once:  make(map[keyless.SKI]*sync.Once),
 
 		getCertificate: getCertificate,
 	}
 }
 
-func (or *OCSPRequester) GetCertificate(op *Operation) (cert *Certificate, err error) {
+func (or *OCSPRequester) GetCertificate(op *keyless.Operation) (cert *keyless.Certificate, err error) {
 	if cert, err = or.getCertificate(op); err != nil || cert.OCSP != nil {
 		return
 	}
@@ -95,14 +97,14 @@ func (or *OCSPRequester) GetCertificate(op *Operation) (cert *Certificate, err e
 	return
 }
 
-func (or *OCSPRequester) requestOCSP(cert *Certificate) (entry *ocspCacheEntry, err error) {
+func (or *OCSPRequester) requestOCSP(cert *keyless.Certificate) (entry *ocspCacheEntry, err error) {
 	entry = new(ocspCacheEntry)
 
 	switch len(cert.Payload) {
 	case 0:
 		return
 	case 1:
-		err = ErrorInternal
+		err = keyless.ErrorInternal
 		return
 	}
 
@@ -112,7 +114,7 @@ func (or *OCSPRequester) requestOCSP(cert *Certificate) (entry *ocspCacheEntry, 
 	case len(p) == l:
 		return
 	case len(p) < l+2:
-		err = ErrorInternal
+		err = keyless.ErrorInternal
 		return
 	}
 
@@ -120,7 +122,7 @@ func (or *OCSPRequester) requestOCSP(cert *Certificate) (entry *ocspCacheEntry, 
 	l, p = int(binary.BigEndian.Uint16(p)), p[2:]
 
 	if len(p) < l {
-		err = ErrorInternal
+		err = keyless.ErrorInternal
 		return
 	}
 

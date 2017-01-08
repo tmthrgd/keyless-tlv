@@ -68,7 +68,7 @@ func (e WrappedError) ErrorCode() Error {
 	return e.Code
 }
 
-func getErrorCode(err error) Error {
+func GetErrorCode(err error) Error {
 	if err == nil {
 		return 0
 	}

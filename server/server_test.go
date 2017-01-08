@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package keyless
+package server
 
 import (
 	"bufio"
@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	"golang.org/x/crypto/ed25519"
+
+	"github.com/tmthrgd/keyless"
 )
 
 func fromHexChar(c byte) (b byte, skip bool, ok bool) {
@@ -115,9 +117,9 @@ func (w *loggerWriter) Write(p []byte) (n int, err error) {
 	return
 }
 
-func isAuthorised(pub ed25519.PublicKey, op *Operation) error {
+func isAuthorised(pub ed25519.PublicKey, op *keyless.Operation) error {
 	if bytes.Equal(op.Authorisation, []byte("deny")) {
-		return ErrorNotAuthorised
+		return keyless.ErrorNotAuthorised
 	}
 
 	return nil
@@ -141,11 +143,11 @@ func runner(tb testing.TB) {
 	keys := NewKeyLoader()
 	certs := NewCertLoader()
 
-	if err := keys.LoadFromDir("./test-data/certificate"); err != nil {
+	if err := keys.LoadFromDir("../test-data/certificate"); err != nil {
 		tb.Fatal(err)
 	}
 
-	if err := certs.LoadFromDir("./test-data/certificate"); err != nil {
+	if err := certs.LoadFromDir("../test-data/certificate"); err != nil {
 		tb.Fatal(err)
 	}
 
@@ -159,7 +161,7 @@ func runner(tb testing.TB) {
 		SkipPadding: true,
 	}
 
-	if err := filepath.Walk("./test-data/transcript", func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk("../test-data/transcript", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -168,7 +170,7 @@ func runner(tb testing.TB) {
 			return nil
 		}
 
-		rel, err := filepath.Rel("./test-data/transcript", path)
+		rel, err := filepath.Rel("../test-data/transcript", path)
 		if err != nil {
 			rel = path
 		}
@@ -254,11 +256,11 @@ func signing(tb testing.TB) {
 	keys := NewKeyLoader()
 	certs := NewCertLoader()
 
-	if err := keys.LoadFromDir("./test-data/certificate"); err != nil {
+	if err := keys.LoadFromDir("../test-data/certificate"); err != nil {
 		tb.Fatal(err)
 	}
 
-	if err := certs.LoadFromDir("./test-data/certificate"); err != nil {
+	if err := certs.LoadFromDir("../test-data/certificate"); err != nil {
 		tb.Fatal(err)
 	}
 
@@ -312,12 +314,12 @@ func signing(tb testing.TB) {
 					runBenchmarkSigningCase(bb, byte(idx), h, j == 1, handler)
 				})
 			} else {
-				var ski SKI
+				var ski keyless.SKI
 
 				if j == 1 {
-					ski = SKI{0xf8, 0x8c, 0x1f, 0xd9, 0x90, 0xbb, 0x15, 0x9e, 0x26, 0xa2, 0xbb, 0x3c, 0x59, 0x64, 0x9f, 0xf5, 0x69, 0xea, 0xda, 0xad}
+					ski = keyless.SKI{0xf8, 0x8c, 0x1f, 0xd9, 0x90, 0xbb, 0x15, 0x9e, 0x26, 0xa2, 0xbb, 0x3c, 0x59, 0x64, 0x9f, 0xf5, 0x69, 0xea, 0xda, 0xad}
 				} else {
-					ski = SKI{0x00, 0x82, 0x62, 0x7c, 0x92, 0xe8, 0xc4, 0x6c, 0x8c, 0x05, 0x71, 0x3f, 0x0a, 0x70, 0xeb, 0x2e, 0x09, 0xf9, 0x63, 0xc1}
+					ski = keyless.SKI{0x00, 0x82, 0x62, 0x7c, 0x92, 0xe8, 0xc4, 0x6c, 0x8c, 0x05, 0x71, 0x3f, 0x0a, 0x70, 0xeb, 0x2e, 0x09, 0xf9, 0x63, 0xc1}
 				}
 
 				priv, err := keys.GetKey(ski)
@@ -341,36 +343,36 @@ func signing(tb testing.TB) {
 }
 
 func generateSigningRequest(idx byte, h crypto.Hash, ecdsaOrPSS bool) ([]byte, []byte, error) {
-	var opcode Op
+	var opcode keyless.Op
 	switch h {
 	case crypto.MD5SHA1:
-		opcode = OpRSASignMD5SHA1
+		opcode = keyless.OpRSASignMD5SHA1
 	case crypto.SHA1:
-		opcode = OpRSASignSHA1
+		opcode = keyless.OpRSASignSHA1
 	case crypto.SHA224:
-		opcode = OpRSASignSHA224
+		opcode = keyless.OpRSASignSHA224
 	case crypto.SHA256:
-		opcode = OpRSASignSHA256
+		opcode = keyless.OpRSASignSHA256
 	case crypto.SHA384:
-		opcode = OpRSASignSHA384
+		opcode = keyless.OpRSASignSHA384
 	case crypto.SHA512:
-		opcode = OpRSASignSHA512
+		opcode = keyless.OpRSASignSHA512
 	default:
 		return nil, nil, errors.New("invalid hash")
 	}
 
 	if ecdsaOrPSS {
-		opcode |= Op(0x30) // RSA-PSS
+		opcode |= keyless.Op(0x30) // RSA-PSS
 	} else {
-		opcode |= Op(0x10) // ECDSA
+		opcode |= keyless.Op(0x10) // ECDSA
 	}
 
-	var ski SKI
+	var ski keyless.SKI
 
 	if ecdsaOrPSS {
-		ski = SKI{0xf8, 0x8c, 0x1f, 0xd9, 0x90, 0xbb, 0x15, 0x9e, 0x26, 0xa2, 0xbb, 0x3c, 0x59, 0x64, 0x9f, 0xf5, 0x69, 0xea, 0xda, 0xad}
+		ski = keyless.SKI{0xf8, 0x8c, 0x1f, 0xd9, 0x90, 0xbb, 0x15, 0x9e, 0x26, 0xa2, 0xbb, 0x3c, 0x59, 0x64, 0x9f, 0xf5, 0x69, 0xea, 0xda, 0xad}
 	} else {
-		ski = SKI{0x00, 0x82, 0x62, 0x7c, 0x92, 0xe8, 0xc4, 0x6c, 0x8c, 0x05, 0x71, 0x3f, 0x0a, 0x70, 0xeb, 0x2e, 0x09, 0xf9, 0x63, 0xc1}
+		ski = keyless.SKI{0x00, 0x82, 0x62, 0x7c, 0x92, 0xe8, 0xc4, 0x6c, 0x8c, 0x05, 0x71, 0x3f, 0x0a, 0x70, 0xeb, 0x2e, 0x09, 0xf9, 0x63, 0xc1}
 	}
 
 	var hash []byte

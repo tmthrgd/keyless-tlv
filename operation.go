@@ -217,7 +217,7 @@ func (op *Operation) FromError(err error) {
 		Opcode:  OpError,
 		Payload: op.errorBuffer[:],
 	}
-	binary.BigEndian.PutUint16(op.Payload, uint16(getErrorCode(err)))
+	binary.BigEndian.PutUint16(op.Payload, uint16(GetErrorCode(err)))
 }
 
 func (op *Operation) ToError() Error {

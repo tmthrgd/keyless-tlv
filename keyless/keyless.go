@@ -20,6 +20,7 @@ import (
 	"github.com/cloudflare/cfssl/helpers/derhelpers"
 	"github.com/jbenet/go-reuseport"
 	"github.com/tmthrgd/keyless"
+	"github.com/tmthrgd/keyless/server"
 )
 
 var bufferPool = &sync.Pool{
@@ -90,18 +91,18 @@ func main() {
 		}
 	}
 
-	keys := keyless.NewKeyLoader()
-	certs := keyless.NewCertLoader()
+	keys := server.NewKeyLoader()
+	certs := server.NewCertLoader()
 	auths := keyless.NewAuthorities()
 
 	getCert := certs.GetCertificate
 	getKey := keys.GetKey
 
 	if selfSign {
-		ss := keyless.NewSelfSigner()
+		ss := server.NewSelfSigner()
 
-		getCert = (keyless.GetCertChain{getCert, ss.GetCertificate}).GetCertificate
-		getKey = (keyless.GetKeyChain{getKey, ss.GetKey}).GetKey
+		getCert = (server.GetCertChain{getCert, ss.GetCertificate}).GetCertificate
+		getKey = (server.GetKeyChain{getKey, ss.GetKey}).GetKey
 	}
 
 	if len(acmeKeyPath) != 0 {
@@ -118,22 +119,22 @@ func main() {
 			}
 		}
 
-		ac := keyless.NewACMEClient(&acme.Client{
+		ac := server.NewACMEClient(&acme.Client{
 			Key: priv,
 
 			DirectoryURL: acmeURL,
 		})
 
-		getCert = (keyless.GetCertChain{getCert, ac.GetCertificate}).GetCertificate
-		getKey = (keyless.GetKeyChain{getKey, ac.GetKey}).GetKey
+		getCert = (server.GetCertChain{getCert, ac.GetCertificate}).GetCertificate
+		getKey = (server.GetKeyChain{getKey, ac.GetKey}).GetKey
 	}
 
 	if stapleOCSP {
-		ocsp := keyless.NewOCSPRequester(getCert)
+		ocsp := server.NewOCSPRequester(getCert)
 		getCert = ocsp.GetCertificate
 	}
 
-	handler := &keyless.RequestHandler{
+	handler := &server.RequestHandler{
 		GetCert: getCert,
 		GetKey:  getKey,
 

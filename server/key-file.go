@@ -1,10 +1,12 @@
-package keyless
+package server
 
 import (
 	"fmt"
 	"io/ioutil"
 
 	"golang.org/x/crypto/ed25519"
+
+	"github.com/tmthrgd/keyless"
 )
 
 func (h *RequestHandler) ReadKeyFile(path string) error {
@@ -13,7 +15,7 @@ func (h *RequestHandler) ReadKeyFile(path string) error {
 		return err
 	}
 
-	const expectedSize = ed25519.PrivateKeySize + authSize
+	const expectedSize = ed25519.PrivateKeySize + keyless.AuthSize
 	if len(keyfile) != expectedSize {
 		return fmt.Errorf("invalid key file: expected length %d, got length %d", expectedSize, len(keyfile))
 	}
