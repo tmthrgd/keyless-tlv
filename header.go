@@ -45,13 +45,13 @@ func (h *Header) Marshal(op *Operation, priv ed25519.PrivateKey, buf []byte) []b
 	op.Marshal(b)
 
 	out := b.Bytes()
-	binary.BigEndian.PutUint16(out[2:], uint16(b.Len()-hdrLen))
+	binary.BigEndian.PutUint16(out[2:], uint16(len(out)-hdrLen))
 
-	if !h.NoSignature {
-		locSig := ed25519.Sign(priv, out[hdrLen:])
-		copy(out[hdrLen-ed25519.SignatureSize:], locSig)
+	if h.NoSignature {
+		return out
 	}
 
+	copy(out[hdrLen-ed25519.SignatureSize:], ed25519.Sign(priv, out[hdrLen:]))
 	return out
 }
 
@@ -67,10 +67,11 @@ func (h *Header) Unmarshal(in []byte) (rest []byte, err error) {
 
 	in = in[headerLengthNoSignature:]
 
-	if !h.NoSignature {
-		h.PublicKey, in = in[:ed25519.PublicKeySize:ed25519.PublicKeySize], in[ed25519.PublicKeySize:]
-		h.Signature, in = in[:ed25519.SignatureSize:ed25519.SignatureSize], in[ed25519.SignatureSize:]
+	if h.NoSignature {
+		return in, nil
 	}
 
+	h.PublicKey, in = in[:ed25519.PublicKeySize:ed25519.PublicKeySize], in[ed25519.PublicKeySize:]
+	h.Signature, in = in[:ed25519.SignatureSize:ed25519.SignatureSize], in[ed25519.SignatureSize:]
 	return in, nil
 }
