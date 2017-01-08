@@ -23,7 +23,6 @@ func (cert *Certificate) SetPayloadFromDER(ders [][]byte) {
 	}
 
 	cert.Payload = b.Bytes()
-	return
 }
 
 func (cert *Certificate) SetPayloadFromX509s(x509s []*x509.Certificate) {
@@ -37,7 +36,6 @@ func (cert *Certificate) SetPayloadFromX509s(x509s []*x509.Certificate) {
 	}
 
 	cert.Payload = b.Bytes()
-	return
 }
 
 func (cert *Certificate) PayloadToDER() ([][]byte, error) {
