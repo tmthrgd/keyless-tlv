@@ -6,7 +6,7 @@ import (
 )
 
 func TestGetErrorCode(t *testing.T) {
-	for i := range make([]struct{}, 0x10000) {
+	for i := 0; i < 0x10000; i++ {
 		if GetErrorCode(Error(i)) != Error(i) {
 			t.Fatalf("GetErrorCode failed for error %v", Error(i))
 		}
@@ -19,7 +19,7 @@ func TestWrappedErrorMessage(t *testing.T) {
 		t.Fatalf("(WrappedError).Error failed, expected 'internal error: test', got '%s'", e.Error())
 	}
 
-	for i := range make([]struct{}, 0x10000) {
+	for i := 0; i < 0x10000; i++ {
 		if GetErrorCode(WrappedError{Error(i), nil}) != Error(i) {
 			t.Fatalf("GetErrorCode failed for error %v with WrappedError", Error(i))
 		}
