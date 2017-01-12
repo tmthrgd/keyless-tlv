@@ -10,9 +10,9 @@ import (
 
 func TestCertificatePayload(t *testing.T) {
 	cert := new(Certificate)
-	cert.SetPayloadFromDER([][]byte{[]byte("test")})
+	cert.SetPayloadFromDER([][]byte{[]byte("test0"), []byte("test01"), []byte("test012")})
 
-	if !bytes.Equal(cert.Payload, []byte("\x00\x04test")) {
+	if !bytes.Equal(cert.Payload, []byte("\x00\x05test0\x00\x06test01\x00\x07test012")) {
 		t.Fatal("(*Certificate).SetPayloadFromDER format invalid")
 	}
 
@@ -26,7 +26,7 @@ func TestCertificatePayload(t *testing.T) {
 func TestCertificateDERPayload(t *testing.T) {
 	ders := make([][]byte, 10)
 
-	for i := range make([]struct{}, len(ders)) {
+	for i := 0; i < len(ders); i++ {
 		ders[i] = make([]byte, rand.Intn(128))
 		rand.Read(ders[i])
 	}
