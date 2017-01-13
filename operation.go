@@ -127,11 +127,7 @@ func (op *Operation) Unmarshal(in []byte) error {
 
 	seen := make(map[Tag]struct{})
 
-	for len(in) != 0 {
-		if len(in) < 4 {
-			return WrappedError{ErrorFormat, errors.New("missing tag and length")}
-		}
-
+	for len(in) >= 4 {
 		tag := Tag(binary.BigEndian.Uint16(in))
 		length := binary.BigEndian.Uint16(in[2:])
 		in = in[4:]
@@ -207,6 +203,10 @@ func (op *Operation) Unmarshal(in []byte) error {
 		}
 
 		in = in[length:]
+	}
+
+	if len(in) != 0 {
+		return WrappedError{ErrorFormat, errors.New("missing tag and length")}
 	}
 
 	return nil
