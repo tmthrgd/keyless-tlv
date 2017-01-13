@@ -121,16 +121,26 @@ func (a *Authorities) ReadFrom(path string) error {
 
 	defer f.Close()
 
-	var dst [ed25519.PublicKeySize]byte
+	dst := make([]byte, ed25519.PublicKeySize, ed25519.PublicKeySize*2)
 
 	s := bufio.NewScanner(f)
 
 	for s.Scan() {
-		if _, err := base64.RawStdEncoding.Decode(dst[:], s.Bytes()); err != nil {
+		if base64.RawStdEncoding.DecodedLen(len(s.Bytes())) > cap(dst) {
+			return errors.New("invalid key line")
+		}
+
+		n, err := base64.RawStdEncoding.Decode(dst[:cap(dst)], s.Bytes())
+		if err != nil {
 			return err
 		}
 
-		a.Add(dst[:])
+		if n != ed25519.PublicKeySize {
+			return fmt.Errorf("invalid key size, expected %d, got %d",
+				ed25519.PublicKeySize, n)
+		}
+
+		a.Add(dst)
 	}
 
 	return s.Err()
