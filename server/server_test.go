@@ -311,7 +311,7 @@ func signing(tb testing.TB) {
 						logger.TB = tb
 					}()
 
-					runBenchmarkSigningCase(bb, byte(idx), h, j == 1, handler)
+					runBenchmarkSigningCase(bb, uint32(idx), h, j == 1, handler)
 				})
 			} else {
 				var ski keyless.SKI
@@ -333,7 +333,7 @@ func signing(tb testing.TB) {
 						logger.TB = tb
 					}()
 
-					runTestSigningCase(tt, byte(idx), h, j == 1, priv.(crypto.Signer).Public(), handler)
+					runTestSigningCase(tt, uint32(idx), h, priv.(crypto.Signer).Public(), handler)
 				})
 			}
 
@@ -342,7 +342,7 @@ func signing(tb testing.TB) {
 	}
 }
 
-func generateSigningRequest(idx byte, h crypto.Hash, ecdsaOrPSS bool) ([]byte, []byte, error) {
+func generateSigningRequest(idx uint32, h crypto.Hash, isRSA bool) ([]byte, []byte, error) {
 	op := &keyless.Operation{SkipPadding: true}
 
 	switch h {
@@ -362,15 +362,13 @@ func generateSigningRequest(idx byte, h crypto.Hash, ecdsaOrPSS bool) ([]byte, [
 		return nil, nil, errors.New("invalid hash")
 	}
 
-	if ecdsaOrPSS {
+	if isRSA {
 		op.Opcode |= keyless.Op(0x0030) // RSA-PSS
-	} else {
-		op.Opcode |= keyless.Op(0x0010) // ECDSA
-	}
 
-	if ecdsaOrPSS {
 		op.SKI = rsaPSSKeySKI
 	} else {
+		op.Opcode |= keyless.Op(0x0010) // ECDSA
+
 		op.SKI = ecdsaKeySKI
 	}
 
@@ -386,15 +384,17 @@ func generateSigningRequest(idx byte, h crypto.Hash, ecdsaOrPSS bool) ([]byte, [
 	}
 
 	hdr := &keyless.Header{
-		ID: uint32(idx),
+		ID: idx,
 
 		NoSignature: true,
 	}
 	return op.Payload, hdr.Marshal(op, nil, nil), nil
 }
 
-func runTestSigningCase(t *testing.T, idx byte, h crypto.Hash, ecdsaOrPSS bool, pub crypto.PublicKey, handler *RequestHandler) {
-	hash, req, err := generateSigningRequest(idx, h, ecdsaOrPSS)
+func runTestSigningCase(t *testing.T, idx uint32, h crypto.Hash, pub crypto.PublicKey, handler *RequestHandler) {
+	rsaKey, isRSA := pub.(*rsa.PublicKey)
+
+	hash, req, err := generateSigningRequest(idx, h, isRSA)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -429,8 +429,8 @@ func runTestSigningCase(t *testing.T, idx byte, h crypto.Hash, ecdsaOrPSS bool, 
 
 	var valid bool
 
-	if ecdsaOrPSS {
-		valid = rsa.VerifyPSS(pub.(*rsa.PublicKey), h, hash, op.Payload, &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, h}) == nil
+	if isRSA {
+		valid = rsa.VerifyPSS(rsaKey, h, hash, op.Payload, &rsa.PSSOptions{rsa.PSSSaltLengthEqualsHash, h}) == nil
 	} else {
 		var sig struct {
 			R, S *big.Int
@@ -448,8 +448,8 @@ func runTestSigningCase(t *testing.T, idx byte, h crypto.Hash, ecdsaOrPSS bool, 
 	}
 }
 
-func runBenchmarkSigningCase(b *testing.B, idx byte, h crypto.Hash, ecdsaOrPSS bool, handler *RequestHandler) {
-	_, req, err := generateSigningRequest(idx, h, ecdsaOrPSS)
+func runBenchmarkSigningCase(b *testing.B, idx uint32, h crypto.Hash, isRSA bool, handler *RequestHandler) {
+	_, req, err := generateSigningRequest(idx, h, isRSA)
 	if err != nil {
 		b.Fatal(err)
 	}
