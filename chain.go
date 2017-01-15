@@ -1,12 +1,10 @@
 package keyless
 
-import "golang.org/x/crypto/ed25519"
-
 type AnyIsAuthorised []IsAuthorisedFunc
 
-func (any AnyIsAuthorised) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
+func (any AnyIsAuthorised) IsAuthorised(op *Operation) error {
 	for _, fn := range any {
-		if err := fn(pub, op); GetErrorCode(err) != ErrorNotAuthorised {
+		if err := fn(op); GetErrorCode(err) != ErrorNotAuthorised {
 			return err
 		}
 	}
@@ -16,9 +14,9 @@ func (any AnyIsAuthorised) IsAuthorised(pub ed25519.PublicKey, op *Operation) er
 
 type AllIsAuthorised []IsAuthorisedFunc
 
-func (all AllIsAuthorised) IsAuthorised(pub ed25519.PublicKey, op *Operation) error {
+func (all AllIsAuthorised) IsAuthorised(op *Operation) error {
 	for _, fn := range all {
-		if err := fn(pub, op); err != nil {
+		if err := fn(op); err != nil {
 			return err
 		}
 	}

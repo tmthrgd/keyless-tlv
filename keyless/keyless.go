@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -13,18 +12,12 @@ import (
 	"syscall"
 
 	"golang.org/x/crypto/acme"
-	"golang.org/x/crypto/ed25519"
 
 	"github.com/cloudflare/cfssl/helpers"
 	"github.com/cloudflare/cfssl/helpers/derhelpers"
 	"github.com/jbenet/go-reuseport"
-	"github.com/tmthrgd/keyless"
 	"github.com/tmthrgd/keyless/server"
 )
-
-func publicKeyString(k ed25519.PublicKey) string {
-	return base64.RawStdEncoding.EncodeToString(k)
-}
 
 func init() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
@@ -39,12 +32,6 @@ func main() {
 
 	var pid string
 	flag.StringVar(&pid, "pid", "/run/keyless.pid", "the file to write the pid out to")
-
-	var keyfilePath string
-	flag.StringVar(&keyfilePath, "keyfile", "/etc/keyless.key", "the file to read the ed25519 key from")
-
-	var authoritiesPath string
-	flag.StringVar(&authoritiesPath, "authorities", "/etc/keyless.auth", "the file to read authorities from")
 
 	var stapleOCSP bool
 	flag.BoolVar(&stapleOCSP, "ocsp", false, "staple OCSP responses")
@@ -86,7 +73,6 @@ func main() {
 
 	keys := server.NewKeyLoader()
 	certs := server.NewCertLoader()
-	auths := keyless.NewAuthorities()
 
 	getCert := certs.GetCertificate
 	getKey := keys.GetKey
@@ -130,8 +116,6 @@ func main() {
 	handler := &server.RequestHandler{
 		GetCert: getCert,
 		GetKey:  getKey,
-
-		IsAuthorised: auths.IsAuthorised,
 	}
 
 	var reload = func() error {
@@ -139,15 +123,7 @@ func main() {
 			return err
 		}
 
-		if err := certs.LoadFromDir(dir); err != nil {
-			return err
-		}
-
-		if err := auths.ReadFrom(authoritiesPath); err != nil {
-			return err
-		}
-
-		return handler.ReadKeyFile(keyfilePath)
+		return certs.LoadFromDir(dir)
 	}
 
 	if err = reload(); err != nil {
@@ -165,12 +141,11 @@ func main() {
 				panic(err)
 			}
 
-			log.Printf("listening on %s with key %s\n", addr,
-				publicKeyString(handler.PublicKey))
+			log.Printf("listening on %s\n", addr)
 		}
 	}()
 
-	log.Printf("listening on %s with key %s\n", addr, publicKeyString(handler.PublicKey))
+	log.Printf("listening on %s\n", addr)
 
 	panic(handler.ServePacket(conn))
 }

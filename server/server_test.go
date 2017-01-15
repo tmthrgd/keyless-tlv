@@ -20,8 +20,6 @@ import (
 	"strings"
 	"testing"
 
-	"golang.org/x/crypto/ed25519"
-
 	"github.com/tmthrgd/keyless"
 )
 
@@ -122,7 +120,7 @@ func (w *loggerWriter) Write(p []byte) (n int, err error) {
 	return
 }
 
-func isAuthorised(pub ed25519.PublicKey, op *keyless.Operation) error {
+func isAuthorised(op *keyless.Operation) error {
 	if bytes.Equal(op.Authorisation, []byte("deny")) {
 		return keyless.ErrorNotAuthorised
 	}
@@ -160,7 +158,6 @@ func runner(tb testing.TB) {
 
 		ErrorLog: log.New(logger, "", log.Lshortfile),
 
-		NoSignature: true,
 		SkipPadding: true,
 	}
 
@@ -270,7 +267,6 @@ func signing(tb testing.TB) {
 
 		ErrorLog: log.New(logger, "", log.Lshortfile),
 
-		NoSignature: true,
 		SkipPadding: true,
 	}
 
@@ -383,12 +379,8 @@ func generateSigningRequest(idx uint32, h crypto.Hash, isRSA bool) ([]byte, []by
 		op.Payload = hh.Sum(nil)
 	}
 
-	hdr := &keyless.Header{
-		ID: idx,
-
-		NoSignature: true,
-	}
-	return op.Payload, hdr.Marshal(op, nil, nil), nil
+	hdr := &keyless.Header{ID: idx}
+	return op.Payload, hdr.Marshal(op, nil), nil
 }
 
 func runTestSigningCase(t *testing.T, idx uint32, h crypto.Hash, pub crypto.PublicKey, handler *RequestHandler) {
@@ -407,7 +399,7 @@ func runTestSigningCase(t *testing.T, idx uint32, h crypto.Hash, pub crypto.Publ
 		t.Fatal(err)
 	}
 
-	hdr := &keyless.Header{NoSignature: true}
+	var hdr keyless.Header
 
 	body, err := hdr.Unmarshal(got)
 	if err != nil {
