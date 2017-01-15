@@ -5,7 +5,6 @@
 package server
 
 import (
-	"bufio"
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
@@ -21,27 +20,13 @@ import (
 	"testing"
 
 	"github.com/tmthrgd/keyless"
+	"github.com/tmthrgd/transcript-parser"
 )
 
 var (
 	rsaPSSKeySKI = keyless.SKI{0xf8, 0x8c, 0x1f, 0xd9, 0x90, 0xbb, 0x15, 0x9e, 0x26, 0xa2, 0xbb, 0x3c, 0x59, 0x64, 0x9f, 0xf5, 0x69, 0xea, 0xda, 0xad}
 	ecdsaKeySKI  = keyless.SKI{0x00, 0x82, 0x62, 0x7c, 0x92, 0xe8, 0xc4, 0x6c, 0x8c, 0x05, 0x71, 0x3f, 0x0a, 0x70, 0xeb, 0x2e, 0x09, 0xf9, 0x63, 0xc1}
 )
-
-func fromHexChar(c byte) (b byte, skip bool, ok bool) {
-	switch {
-	case '0' <= c && c <= '9':
-		return c - '0', false, true
-	case 'a' <= c && c <= 'f':
-		return c - 'a' + 10, false, true
-	case 'A' <= c && c <= 'F':
-		return c - 'A' + 10, false, true
-	case c == ' ' || c == '\t':
-		return 0, true, false
-	}
-
-	return 0, false, false
-}
 
 func parseTestCase(path string) (request, response []byte, err error) {
 	f, err := os.Open(path)
@@ -51,61 +36,17 @@ func parseTestCase(path string) (request, response []byte, err error) {
 
 	defer f.Close()
 
-	var req, resp bytes.Buffer
-	var isResp bool
-
-	scanner := bufio.NewScanner(f)
-
-	for scanner.Scan() {
-		data := scanner.Bytes()
-
-		if bytes.Equal(data, []byte{'-', '-', '-'}) {
-			if isResp {
-				err = errors.New("invalid format: already in response")
-				return
-			}
-
-			isResp = true
-			continue
-		}
-
-		if i := bytes.IndexByte(data, ';'); i != -1 {
-			data = data[:i]
-		}
-
-		for i := 0; i < len(data); i++ {
-			a, skip, ok := fromHexChar(data[i])
-			if skip {
-				continue
-			} else if !ok {
-				err = fmt.Errorf("invalid format: expected hex or space, got %c", data[i])
-				return
-			}
-
-			if i++; i == len(data) {
-				err = errors.New("invalid format: expected hex, got EOF")
-				return
-			}
-
-			b, _, ok := fromHexChar(data[i])
-			if !ok {
-				err = fmt.Errorf("invalid format: expected hex, got %c", data[i])
-				return
-			}
-
-			if isResp {
-				resp.WriteByte((a << 4) | b)
-			} else {
-				req.WriteByte((a << 4) | b)
-			}
-		}
-	}
-
-	if err = scanner.Err(); err != nil {
+	sections, _, err := transcript.Parse(f)
+	if err != nil {
 		return
 	}
 
-	return req.Bytes(), resp.Bytes(), nil
+	if len(sections) != 2 {
+		err = errors.New("invalid format: needs exactly request and response")
+		return
+	}
+
+	return sections[0], sections[1], nil
 }
 
 type loggerWriter struct {
