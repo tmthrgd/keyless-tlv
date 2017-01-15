@@ -124,7 +124,7 @@ func (op *Operation) Marshal(ow io.Writer) error {
 func (op *Operation) Unmarshal(in []byte) error {
 	*op = Operation{}
 
-	seen := make(map[Tag]struct{})
+	seen := make(map[Tag]struct{}, numOfTags)
 
 	for len(in) >= 4 {
 		tag := Tag(binary.BigEndian.Uint16(in))

@@ -23,3 +23,7 @@ const (
 	// The range [0xc000, 0xffff) is reserved for private tags.
 	TagECDSACipher Tag = 0xc001 // One iff ECDSA ciphers are supported
 )
+
+// The number of supported tags. This is used to size the initial map capacity
+// for seen tags in (*Operation).Unmarshal.
+const numOfTags = 12
