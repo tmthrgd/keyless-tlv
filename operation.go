@@ -3,7 +3,6 @@ package keyless
 import (
 	"crypto/sha1"
 	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -181,15 +180,6 @@ func (op *Operation) Unmarshal(in []byte) error {
 		case TagPayload:
 			op.Payload = in[:length:length]
 		case TagPadding:
-			var v byte
-
-			for i := 0; i < int(length); i++ {
-				v |= in[i]
-			}
-
-			if subtle.ConstantTimeByteEq(v, 0) == 0 {
-				return WrappedError{ErrorFormat, errors.New("invalid padding")}
-			}
 		case TagOCSPResponse:
 			op.OCSPResponse = in[:length:length]
 		case TagAuthorisation:
