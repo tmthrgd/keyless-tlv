@@ -2,7 +2,7 @@ package server
 
 import (
 	"bytes"
-	"crypto/sha256"
+	"crypto/sha1"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -13,7 +13,7 @@ import (
 	"github.com/tmthrgd/keyless"
 )
 
-type ocspCahceID [sha256.Size]byte
+type ocspCahceID [sha1.Size]byte
 
 type ocspCacheEntry struct {
 	Bytes    []byte
@@ -48,7 +48,7 @@ func (or *OCSPRequester) GetCertificate(op *keyless.Operation) (cert *keyless.Ce
 		return
 	}
 
-	id := sha256.Sum256(cert.Payload)
+	id := sha1.Sum(cert.Payload)
 
 	or.RLock()
 	entry, ok := or.cache[id]
