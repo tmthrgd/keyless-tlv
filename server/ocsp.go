@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/tmthrgd/keyless"
 )
+
+type ocspCahceID [sha256.Size]byte
 
 type ocspCacheEntry struct {
 	Bytes    []byte
@@ -23,8 +26,8 @@ func (e *ocspCacheEntry) Valid() bool {
 
 type OCSPRequester struct {
 	sync.RWMutex
-	cache map[keyless.SKI]*ocspCacheEntry
-	once  map[keyless.SKI]*sync.Once
+	cache map[ocspCahceID]*ocspCacheEntry
+	once  map[ocspCahceID]*sync.Once
 
 	getCertificate GetCertFunc
 
@@ -33,8 +36,8 @@ type OCSPRequester struct {
 
 func NewOCSPRequester(getCertificate GetCertFunc) *OCSPRequester {
 	return &OCSPRequester{
-		cache: make(map[keyless.SKI]*ocspCacheEntry),
-		once:  make(map[keyless.SKI]*sync.Once),
+		cache: make(map[ocspCahceID]*ocspCacheEntry),
+		once:  make(map[ocspCahceID]*sync.Once),
 
 		getCertificate: getCertificate,
 	}
@@ -45,8 +48,10 @@ func (or *OCSPRequester) GetCertificate(op *keyless.Operation) (cert *keyless.Ce
 		return
 	}
 
+	id := sha256.Sum256(cert.Payload)
+
 	or.RLock()
-	entry, ok := or.cache[cert.SKI]
+	entry, ok := or.cache[id]
 	or.RUnlock()
 
 	if ok && entry.Valid() {
@@ -56,17 +61,17 @@ func (or *OCSPRequester) GetCertificate(op *keyless.Operation) (cert *keyless.Ce
 
 	or.Lock()
 
-	if entry, ok = or.cache[cert.SKI]; ok && entry.Valid() {
+	if entry, ok = or.cache[id]; ok && entry.Valid() {
 		or.Unlock()
 
 		cert.OCSP = entry.Bytes
 		return
 	}
 
-	once, ok := or.once[cert.SKI]
+	once, ok := or.once[id]
 	if !ok {
 		once = new(sync.Once)
-		or.once[cert.SKI] = once
+		or.once[id] = once
 	}
 
 	or.Unlock()
@@ -75,7 +80,7 @@ func (or *OCSPRequester) GetCertificate(op *keyless.Operation) (cert *keyless.Ce
 		entry, err = or.requestOCSP(cert)
 
 		or.Lock()
-		or.cache[cert.SKI] = entry
+		or.cache[id] = entry
 		or.Unlock()
 	})
 	if err != nil {
@@ -84,7 +89,7 @@ func (or *OCSPRequester) GetCertificate(op *keyless.Operation) (cert *keyless.Ce
 
 	if entry == nil {
 		or.RLock()
-		entry, _ = or.cache[cert.SKI]
+		entry, _ = or.cache[id]
 		or.RUnlock()
 	}
 
