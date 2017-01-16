@@ -16,8 +16,8 @@ var padding [PadTo]byte
 
 type Operation struct {
 	Opcode             Op
-	Payload            []byte
 	SKI                SKI
+	Payload            []byte
 	ClientIP, ServerIP net.IP
 	SigAlgs            []byte
 	SNI                []byte
