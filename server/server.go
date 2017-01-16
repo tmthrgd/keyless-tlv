@@ -106,6 +106,10 @@ func (h *RequestHandler) Handle(r io.Reader) (out []byte, err error) {
 	out = hdr.Marshal(op, in[:0])
 
 	if &out[0] != &in[0] && cap(in) == bufferLength {
+		for i := range in {
+			in[i] = 0
+		}
+
 		bufferPool.Put(in[:0])
 	}
 
