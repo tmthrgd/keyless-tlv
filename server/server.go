@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -97,6 +98,18 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	return
 }
 
+func (h *RequestHandler) recv(addr net.Addr) {
+	err := recover()
+	if err == nil {
+		return
+	}
+
+	const size = 64 << 10
+	buf := make([]byte, size)
+	buf = buf[:runtime.Stack(buf, false)]
+	h.logger().Printf("panic serving %v: %v\n%s", addr, err, buf)
+}
+
 func (h *RequestHandler) ServePacket(conn net.PacketConn) error {
 	for {
 		buf := bufferPool.Get().([]byte)
@@ -113,6 +126,8 @@ func (h *RequestHandler) ServePacket(conn net.PacketConn) error {
 		}
 
 		go func(buf []byte, addr net.Addr) {
+			defer h.recv(addr)
+
 			out, err := h.Handle(buf)
 			if err != nil {
 				h.logger().Printf("error: %v", err)
