@@ -14,9 +14,11 @@ import (
 	"github.com/tmthrgd/keyless"
 )
 
+const bufferLength = 2 * 1024
+
 var bufferPool = &sync.Pool{
 	New: func() interface{} {
-		return make([]byte, 0, 2*1024)
+		return make([]byte, 0, bufferLength)
 	},
 }
 
@@ -44,7 +46,75 @@ func (h *RequestHandler) logger() *log.Logger {
 	return stdLogger
 }
 
-func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
+func (h *RequestHandler) Handle(r io.Reader) (out []byte, err error) {
+	start := time.Now()
+
+	in := make([]byte, keyless.HeaderLength)
+	if _, err = io.ReadFull(r, in[:]); err != nil {
+		return
+	}
+
+	var hdr keyless.Header
+	if _, err = hdr.Unmarshal(in); err != nil {
+		panic(err)
+	}
+
+	op := new(keyless.Operation)
+
+	if hdr.Major != keyless.VersionMajor {
+		err = keyless.ErrorVersionMismatch
+	} else {
+		if hdr.Length <= bufferLength {
+			in = bufferPool.Get().([]byte)
+			in = in[:hdr.Length]
+		} else {
+			in = make([]byte, hdr.Length)
+		}
+
+		if _, err = io.ReadFull(r, in); err == io.EOF {
+			err = keyless.WrappedError{keyless.ErrorFormat, io.ErrUnexpectedEOF}
+		} else if err == nil {
+			err = op.Unmarshal(in)
+		}
+	}
+
+	if err == nil {
+		h.logger().Printf("id: %d, %v", hdr.ID, op)
+
+		if h.IsAuthorised != nil {
+			err = h.IsAuthorised(op)
+		}
+
+		if err == nil {
+			op, err = h.Process(op)
+		}
+	}
+
+	if err != nil {
+		h.logger().Printf("id: %d, %v", hdr.ID, err)
+
+		op.FromError(err)
+		err = nil
+	}
+
+	if op.Opcode == 0 {
+		op.Opcode = keyless.OpResponse
+	}
+
+	op.SkipPadding = h.SkipPadding
+
+	out = hdr.Marshal(op, in[:0])
+
+	if &out[0] != &in[0] && cap(in) == bufferLength {
+		bufferPool.Put(in[:0])
+	}
+
+	h.logger().Printf("id: %d, elapsed: %s, request: %d B, response: %d B", hdr.ID,
+		time.Since(start), keyless.HeaderLength+len(in), len(out))
+	return
+}
+
+func (h *RequestHandler) HandleBytes(in []byte) (out []byte, err error) {
 	start := time.Now()
 
 	var hdr keyless.Header
@@ -130,7 +200,7 @@ func (h *RequestHandler) ServePacket(conn net.PacketConn) error {
 		go func(buf []byte, addr net.Addr) {
 			defer h.recv(addr)
 
-			out, err := h.Handle(buf)
+			out, err := h.HandleBytes(buf)
 			if err != nil {
 				h.logger().Printf("error: %v", err)
 			} else if _, err = conn.WriteTo(out, addr); err != nil {

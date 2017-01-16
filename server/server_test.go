@@ -167,7 +167,7 @@ func runTestCase(t *testing.T, path string, handler *RequestHandler) {
 		handler = h2
 	}
 
-	got, err := handler.Handle(req)
+	got, err := handler.HandleBytes(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +195,7 @@ func runBenchmarkCase(b *testing.B, path string, handler *RequestHandler) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := handler.Handle(append([]byte(nil), req...)); err != nil {
+		if _, err := handler.HandleBytes(append([]byte(nil), req...)); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -358,7 +358,7 @@ func runTestSigningCase(t *testing.T, idx uint32, h crypto.Hash, pub crypto.Publ
 	t.Logf("-> %x", req)
 	t.Logf("<- 020000xx000000%02x0011000200f0001200xx...", idx)
 
-	got, err := handler.Handle(req)
+	got, err := handler.HandleBytes(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -413,7 +413,7 @@ func runBenchmarkSigningCase(b *testing.B, idx uint32, h crypto.Hash, isRSA bool
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := handler.Handle(append([]byte(nil), req...)); err != nil {
+		if _, err := handler.HandleBytes(append([]byte(nil), req...)); err != nil {
 			b.Fatal(err)
 		}
 	}
