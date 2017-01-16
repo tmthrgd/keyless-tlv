@@ -28,7 +28,7 @@ var (
 	ecdsaKeySKI  = keyless.SKI{0x00, 0x82, 0x62, 0x7c, 0x92, 0xe8, 0xc4, 0x6c, 0x8c, 0x05, 0x71, 0x3f, 0x0a, 0x70, 0xeb, 0x2e, 0x09, 0xf9, 0x63, 0xc1}
 )
 
-func parseTestCase(path string) (request, response []byte, err error) {
+func parseTestCase(path string) (request, response []byte, meta map[interface{}]interface{}, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return
@@ -36,7 +36,7 @@ func parseTestCase(path string) (request, response []byte, err error) {
 
 	defer f.Close()
 
-	sections, _, err := transcript.Parse(f)
+	sections, metadata, err := transcript.Parse(f)
 	if err != nil {
 		return
 	}
@@ -46,7 +46,7 @@ func parseTestCase(path string) (request, response []byte, err error) {
 		return
 	}
 
-	return sections[0], sections[1], nil
+	return sections[0], sections[1], metadata, nil
 }
 
 type loggerWriter struct {
@@ -143,13 +143,29 @@ func runner(tb testing.TB) {
 }
 
 func runTestCase(t *testing.T, path string, handler *RequestHandler) {
-	req, resp, err := parseTestCase(path)
+	req, resp, meta, err := parseTestCase(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Logf("-> %x", req)
-	t.Logf("<- %x", resp)
+	if len(req) > 256 {
+		t.Logf("-> %x...", req[:256])
+	} else {
+		t.Logf("-> %x", req)
+	}
+
+	if len(resp) > 256 {
+		t.Logf("<- %x...", resp[:256])
+	} else {
+		t.Logf("<- %x", resp)
+	}
+
+	if meta["padding"] == true {
+		h2 := new(RequestHandler)
+		*h2 = *handler
+		h2.SkipPadding = false
+		handler = h2
+	}
 
 	got, err := handler.Handle(req)
 	if err != nil {
@@ -164,9 +180,16 @@ func runTestCase(t *testing.T, path string, handler *RequestHandler) {
 }
 
 func runBenchmarkCase(b *testing.B, path string, handler *RequestHandler) {
-	req, _, err := parseTestCase(path)
+	req, _, meta, err := parseTestCase(path)
 	if err != nil {
 		b.Fatal(err)
+	}
+
+	if meta["padding"] == true {
+		h2 := new(RequestHandler)
+		*h2 = *handler
+		h2.SkipPadding = false
+		handler = h2
 	}
 
 	b.ResetTimer()
