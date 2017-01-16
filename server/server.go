@@ -3,6 +3,7 @@ package server
 import (
 	"crypto"
 	"errors"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -103,6 +104,11 @@ func (h *RequestHandler) ServePacket(conn net.PacketConn) error {
 		n, addr, err := conn.ReadFrom(buf[:cap(buf)])
 		if err != nil {
 			bufferPool.Put(buf[:0])
+
+			if err == io.EOF {
+				return nil
+			}
+
 			return err
 		}
 
