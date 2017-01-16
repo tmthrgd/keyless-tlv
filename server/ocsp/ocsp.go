@@ -1,4 +1,4 @@
-package server
+package ocsp
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/ocsp"
 
 	"github.com/tmthrgd/keyless"
+	"github.com/tmthrgd/keyless/server"
 )
 
 type ocspCahceID [sha1.Size]byte
@@ -29,12 +30,12 @@ type OCSPRequester struct {
 	cache map[ocspCahceID]*ocspCacheEntry
 	once  map[ocspCahceID]*sync.Once
 
-	getCertificate GetCertFunc
+	getCertificate server.GetCertFunc
 
 	OCSPRequestOptions *ocsp.RequestOptions
 }
 
-func NewOCSPRequester(getCertificate GetCertFunc) *OCSPRequester {
+func NewOCSPRequester(getCertificate server.GetCertFunc) *OCSPRequester {
 	return &OCSPRequester{
 		cache: make(map[ocspCahceID]*ocspCacheEntry),
 		once:  make(map[ocspCahceID]*sync.Once),

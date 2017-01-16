@@ -17,6 +17,8 @@ import (
 	"github.com/cloudflare/cfssl/helpers/derhelpers"
 	"github.com/jbenet/go-reuseport"
 	"github.com/tmthrgd/keyless/server"
+	kacme "github.com/tmthrgd/keyless/server/acme"
+	"github.com/tmthrgd/keyless/server/ocsp"
 )
 
 func init() {
@@ -98,7 +100,7 @@ func main() {
 			}
 		}
 
-		ac := server.NewACMEClient(&acme.Client{
+		ac := kacme.NewACMEClient(&acme.Client{
 			Key: priv,
 
 			DirectoryURL: acmeURL,
@@ -109,7 +111,7 @@ func main() {
 	}
 
 	if stapleOCSP {
-		ocsp := server.NewOCSPRequester(getCert)
+		ocsp := ocsp.NewOCSPRequester(getCert)
 		getCert = ocsp.GetCertificate
 	}
 
