@@ -59,6 +59,8 @@ func (h *RequestHandler) Handle(in []byte) (out []byte, err error) {
 	switch {
 	case hdr.Major != keyless.VersionMajor:
 		err = keyless.ErrorVersionMismatch
+	case int(hdr.Length) > len(body):
+		err = keyless.WrappedError{keyless.ErrorFormat, io.ErrUnexpectedEOF}
 	case int(hdr.Length) != len(body):
 		err = keyless.WrappedError{keyless.ErrorFormat,
 			errors.New("invalid header length")}
