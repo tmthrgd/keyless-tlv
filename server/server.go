@@ -71,7 +71,7 @@ func (h *RequestHandler) Handle(r io.Reader) (out []byte, err error) {
 			in = make([]byte, hdr.Length)
 		}
 
-		if _, err = io.ReadFull(r, in); err == io.EOF {
+		if _, err = io.ReadFull(r, in); err == io.ErrUnexpectedEOF || err == io.EOF {
 			err = keyless.WrappedError{keyless.ErrorFormat, io.ErrUnexpectedEOF}
 		} else if err == nil {
 			err = op.Unmarshal(in)
