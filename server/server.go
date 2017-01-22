@@ -97,10 +97,6 @@ func (h *RequestHandler) Handle(r io.Reader) (out []byte, err error) {
 		err = nil
 	}
 
-	if op.Opcode == 0 {
-		op.Opcode = keyless.OpResponse
-	}
-
 	op.SkipPadding = h.SkipPadding
 
 	out = hdr.Marshal(op, in[:0])
@@ -159,10 +155,6 @@ func (h *RequestHandler) HandleBytes(in []byte) (out []byte, err error) {
 
 		op.FromError(err)
 		err = nil
-	}
-
-	if op.Opcode == 0 {
-		op.Opcode = keyless.OpResponse
 	}
 
 	op.SkipPadding = h.SkipPadding

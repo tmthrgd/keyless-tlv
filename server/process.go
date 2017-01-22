@@ -23,7 +23,7 @@ var (
 )
 
 func (h *RequestHandler) Process(in *keyless.Operation) (out *keyless.Operation, err error) {
-	out = new(keyless.Operation)
+	out = &keyless.Operation{Opcode: keyless.OpResponse}
 
 	var signOpts crypto.SignerOpts
 	var decryptOpts crypto.DecrypterOpts
