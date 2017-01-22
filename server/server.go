@@ -50,7 +50,7 @@ func (h *RequestHandler) Handle(r io.Reader) (out []byte, err error) {
 	start := time.Now()
 
 	in := make([]byte, keyless.HeaderLength)
-	if _, err = io.ReadFull(r, in[:]); err != nil {
+	if _, err = io.ReadFull(r, in); err != nil {
 		return
 	}
 
