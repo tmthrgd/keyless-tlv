@@ -26,6 +26,10 @@ func init() {
 }
 
 func main() {
+	if err := disableTracing(); err != nil {
+		panic(err)
+	}
+
 	var addr string
 	flag.StringVar(&addr, "addr", "127.0.0.1:2407", "the address to listen on")
 
