@@ -66,13 +66,13 @@ Operations:
 }
 
 func (s *RequestHandlerStats) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`requests: "%d", `+
+	return []byte(fmt.Sprintf(`{ requests: "%d", `+
 		`errors: { version_mismatches: "%d", format: "%d", unauthorised: "%d", `+
 		`unmarshalling: "%d", processing: "%d", `+
 		`unexpected_opcodes: "%d", bad_opcodes: "%d", }, `+
 		`panics: "%d", `+
 		`operations: { pings: "%d", certificate_requests: "%d", decryptions: "%d", `+
-		`signings: "%d", rsa: "%d", ecdsa: "%d", ed25519: "%d" }`,
+		`signings: "%d", rsa: "%d", ecdsa: "%d", ed25519: "%d" } }`,
 		s.Requests(),
 
 		s.VersionMismatches(), s.FormatErrors(), s.UnauthorisedErrors(),
@@ -97,5 +97,5 @@ func (s *SelfSignerStats) String() string {
 }
 
 func (s *SelfSignerStats) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`issued: "%d"`, s.CertificatesIssued())), nil
+	return []byte(fmt.Sprintf(`{ issued: "%d" }`, s.CertificatesIssued())), nil
 }
