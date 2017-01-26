@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/tmthrgd/keyless"
@@ -36,6 +37,8 @@ type RequestHandler struct {
 	ErrorLog *log.Logger
 
 	SkipPadding bool
+
+	Stats RequestHandlerStats
 }
 
 func (h *RequestHandler) logger() *log.Logger {
@@ -62,8 +65,12 @@ func (h *RequestHandler) Handle(r io.Reader) (out []byte, err error) {
 	op := new(keyless.Operation)
 
 	if hdr.Major != keyless.VersionMajor {
+		atomic.AddUint64(&h.Stats.versionErrorss, 1)
+
 		err = keyless.ErrorVersionMismatch
 	} else {
+		atomic.AddUint64(&h.Stats.requests, 1)
+
 		if hdr.Length <= bufferLength {
 			in = bufferPool.Get().([]byte)
 			in = in[:hdr.Length]
@@ -75,6 +82,9 @@ func (h *RequestHandler) Handle(r io.Reader) (out []byte, err error) {
 			err = keyless.WrappedError{keyless.ErrorFormat, io.ErrUnexpectedEOF}
 		} else if err == nil {
 			err = op.Unmarshal(in)
+			if err != nil {
+				atomic.AddUint64(&h.Stats.unmarshal, 1)
+			}
 		}
 	}
 
@@ -83,14 +93,24 @@ func (h *RequestHandler) Handle(r io.Reader) (out []byte, err error) {
 
 		if h.IsAuthorised != nil {
 			err = h.IsAuthorised(op)
+			if keyless.GetErrorCode(err) == keyless.ErrorNotAuthorised {
+				atomic.AddUint64(&h.Stats.unauthorised, 1)
+			}
 		}
 
 		if err == nil {
 			op, err = h.Process(op)
+			if err != nil {
+				atomic.AddUint64(&h.Stats.process, 1)
+			}
 		}
 	}
 
 	if err != nil {
+		if keyless.GetErrorCode(err) == keyless.ErrorFormat {
+			atomic.AddUint64(&h.Stats.formatErrors, 1)
+		}
+
 		h.logger().Printf("id: %d, %v", hdr.ID, err)
 
 		op.FromError(err)
@@ -124,10 +144,14 @@ func (h *RequestHandler) HandleBytes(in []byte) (out []byte, err error) {
 		return
 	}
 
+	atomic.AddUint64(&h.Stats.requests, 1)
+
 	op := new(keyless.Operation)
 
 	switch {
 	case hdr.Major != keyless.VersionMajor:
+		atomic.AddUint64(&h.Stats.versionErrorss, 1)
+
 		err = keyless.ErrorVersionMismatch
 	case int(hdr.Length) > len(body):
 		err = keyless.WrappedError{keyless.ErrorFormat, io.ErrUnexpectedEOF}
@@ -136,6 +160,9 @@ func (h *RequestHandler) HandleBytes(in []byte) (out []byte, err error) {
 			errors.New("invalid header length")}
 	default:
 		err = op.Unmarshal(body)
+		if err != nil {
+			atomic.AddUint64(&h.Stats.unmarshal, 1)
+		}
 	}
 
 	if err == nil {
@@ -143,14 +170,24 @@ func (h *RequestHandler) HandleBytes(in []byte) (out []byte, err error) {
 
 		if h.IsAuthorised != nil {
 			err = h.IsAuthorised(op)
+			if keyless.GetErrorCode(err) == keyless.ErrorNotAuthorised {
+				atomic.AddUint64(&h.Stats.unauthorised, 1)
+			}
 		}
 
 		if err == nil {
 			op, err = h.Process(op)
+			if err != nil {
+				atomic.AddUint64(&h.Stats.process, 1)
+			}
 		}
 	}
 
 	if err != nil {
+		if keyless.GetErrorCode(err) == keyless.ErrorFormat {
+			atomic.AddUint64(&h.Stats.formatErrors, 1)
+		}
+
 		h.logger().Printf("id: %d, %v", hdr.ID, err)
 
 		op.FromError(err)
@@ -171,6 +208,8 @@ func (h *RequestHandler) recv(addr net.Addr) {
 	if err == nil {
 		return
 	}
+
+	atomic.AddUint64(&h.Stats.panics, 1)
 
 	const size = 64 << 10
 	buf := make([]byte, size)

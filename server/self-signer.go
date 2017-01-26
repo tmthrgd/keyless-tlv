@@ -9,6 +9,7 @@ import (
 	"crypto/x509/pkix"
 	"math/big"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/tmthrgd/keyless"
@@ -23,6 +24,8 @@ type SelfSigner struct {
 	snis  map[string]*keyless.Certificate
 
 	once map[string]*sync.Once
+
+	Stats SelfSignerStats
 }
 
 func NewSelfSigner() *SelfSigner {
@@ -161,5 +164,7 @@ func (ss *SelfSigner) generateCertificate(sni []byte) (cert *keyless.Certificate
 
 	delete(ss.once, string(sni))
 	ss.Unlock()
+
+	atomic.AddUint64(&ss.Stats.issued, 1)
 	return
 }

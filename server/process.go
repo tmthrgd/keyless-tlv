@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"errors"
+	"sync/atomic"
 
 	"golang.org/x/crypto/ed25519"
 
@@ -30,6 +31,8 @@ func (h *RequestHandler) Process(in *keyless.Operation) (out *keyless.Operation,
 
 	switch in.Opcode {
 	case keyless.OpPing:
+		atomic.AddUint64(&h.Stats.pings, 1)
+
 		out.Opcode = keyless.OpPong
 
 		if in.Payload == nil {
@@ -40,6 +43,8 @@ func (h *RequestHandler) Process(in *keyless.Operation) (out *keyless.Operation,
 
 		return
 	case keyless.OpGetCertificate:
+		atomic.AddUint64(&h.Stats.certRequests, 1)
+
 		if h.GetCert == nil {
 			err = keyless.ErrorCertNotFound
 			return
@@ -75,13 +80,35 @@ func (h *RequestHandler) Process(in *keyless.Operation) (out *keyless.Operation,
 	case keyless.OpEd25519Sign:
 		signOpts = crypto.Hash(0)
 	case keyless.OpPong, keyless.OpResponse, keyless.OpError:
+		atomic.AddUint64(&h.Stats.unexpectedOps, 1)
+
 		err = keyless.WrappedError{keyless.ErrorUnexpectedOpcode, errors.New(in.Opcode.String())}
 		return
 	case keyless.OpActivate:
 		fallthrough
 	default:
+		atomic.AddUint64(&h.Stats.badOps, 1)
+
 		err = keyless.WrappedError{keyless.ErrorBadOpcode, errors.New(in.Opcode.String())}
 		return
+	}
+
+	switch in.Opcode {
+	case keyless.OpRSADecrypt, keyless.OpRSADecryptRaw:
+		atomic.AddUint64(&h.Stats.decrypts, 1)
+		atomic.AddUint64(&h.Stats.rsaOps, 1)
+	case keyless.OpRSASignMD5SHA1, keyless.OpRSASignSHA1, keyless.OpRSASignSHA224,
+		keyless.OpRSASignSHA256, keyless.OpRSASignSHA384, keyless.OpRSASignSHA512,
+		keyless.OpRSAPSSSignSHA256, keyless.OpRSAPSSSignSHA384, keyless.OpRSAPSSSignSHA512:
+		atomic.AddUint64(&h.Stats.signs, 1)
+		atomic.AddUint64(&h.Stats.rsaOps, 1)
+	case keyless.OpECDSASignMD5SHA1, keyless.OpECDSASignSHA1, keyless.OpECDSASignSHA224,
+		keyless.OpECDSASignSHA256, keyless.OpECDSASignSHA384, keyless.OpECDSASignSHA512:
+		atomic.AddUint64(&h.Stats.signs, 1)
+		atomic.AddUint64(&h.Stats.ecdsaOps, 1)
+	case keyless.OpEd25519Sign:
+		atomic.AddUint64(&h.Stats.signs, 1)
+		atomic.AddUint64(&h.Stats.ed25519Ops, 1)
 	}
 
 	if h.GetKey == nil || !in.SKI.Valid() {

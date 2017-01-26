@@ -140,6 +140,8 @@ func runner(tb testing.TB) {
 	}); err != nil {
 		tb.Error(err)
 	}
+
+	tb.Logf("Stats:\n%s", handler.Stats.String())
 }
 
 func runTestCase(t *testing.T, path string, handler *RequestHandler) {
@@ -300,6 +302,8 @@ func signing(tb testing.TB) {
 			idx++
 		}
 	}
+
+	tb.Logf("Stats:\n%s", handler.Stats.String())
 }
 
 func generateSigningRequest(idx uint32, h crypto.Hash, isRSA bool) ([]byte, []byte, error) {
