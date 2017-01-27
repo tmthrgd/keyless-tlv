@@ -348,7 +348,12 @@ func generateSigningRequest(idx uint32, h crypto.Hash, isRSA bool) ([]byte, []by
 	}
 
 	hdr := &keyless.Header{ID: idx}
-	return op.Payload, hdr.Marshal(op, nil), nil
+	out, err := hdr.Marshal(op, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return op.Payload, out, nil
 }
 
 func runTestSigningCase(t *testing.T, idx uint32, h crypto.Hash, pub crypto.PublicKey, handler *RequestHandler) {

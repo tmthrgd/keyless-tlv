@@ -49,11 +49,15 @@ func (op *Operation) Marshal(ow io.Writer) error {
 	if op.SKI.Valid() {
 		// ski tag
 		binary.Write(w, binary.BigEndian, uint16(TagSKI))
-		binary.Write(w, binary.BigEndian, uint16(len(op.SKI)))
+		binary.Write(w, binary.BigEndian, uint16(len(nilSKI)))
 		w.Write(op.SKI[:])
 	}
 
 	if op.ClientIP != nil {
+		if len(op.ClientIP) > maxUint16 {
+			return fmt.Errorf("%s too large", TagClientIP)
+		}
+
 		// client ip tag
 		binary.Write(w, binary.BigEndian, uint16(TagClientIP))
 		binary.Write(w, binary.BigEndian, uint16(len(op.ClientIP)))
@@ -61,6 +65,10 @@ func (op *Operation) Marshal(ow io.Writer) error {
 	}
 
 	if op.ServerIP != nil {
+		if len(op.ServerIP) > maxUint16 {
+			return fmt.Errorf("%s too large", TagServerIP)
+		}
+
 		// server ip tag
 		binary.Write(w, binary.BigEndian, uint16(TagServerIP))
 		binary.Write(w, binary.BigEndian, uint16(len(op.ServerIP)))
@@ -68,6 +76,10 @@ func (op *Operation) Marshal(ow io.Writer) error {
 	}
 
 	if op.SNI != nil {
+		if len(op.SNI) > maxUint16 {
+			return fmt.Errorf("%s too large", TagSNI)
+		}
+
 		// sni tag
 		binary.Write(w, binary.BigEndian, uint16(TagSNI))
 		binary.Write(w, binary.BigEndian, uint16(len(op.SNI)))
@@ -75,6 +87,10 @@ func (op *Operation) Marshal(ow io.Writer) error {
 	}
 
 	if op.SigAlgs != nil {
+		if len(op.SigAlgs) > maxUint16 {
+			return fmt.Errorf("%s too large", TagSigAlgs)
+		}
+
 		// signature algorithms tag
 		binary.Write(w, binary.BigEndian, uint16(TagSigAlgs))
 		binary.Write(w, binary.BigEndian, uint16(len(op.SigAlgs)))
@@ -82,6 +98,10 @@ func (op *Operation) Marshal(ow io.Writer) error {
 	}
 
 	if op.OCSPResponse != nil {
+		if len(op.OCSPResponse) > maxUint16 {
+			return fmt.Errorf("%s too large", TagOCSPResponse)
+		}
+
 		// ocsp response tag
 		binary.Write(w, binary.BigEndian, uint16(TagOCSPResponse))
 		binary.Write(w, binary.BigEndian, uint16(len(op.OCSPResponse)))
@@ -89,6 +109,10 @@ func (op *Operation) Marshal(ow io.Writer) error {
 	}
 
 	if op.Authorisation != nil {
+		if len(op.Authorisation) > maxUint16 {
+			return fmt.Errorf("%s too large", TagAuthorisation)
+		}
+
 		// authorisation tag
 		binary.Write(w, binary.BigEndian, uint16(TagAuthorisation))
 		binary.Write(w, binary.BigEndian, uint16(len(op.Authorisation)))
@@ -103,6 +127,10 @@ func (op *Operation) Marshal(ow io.Writer) error {
 	}
 
 	if op.Payload != nil {
+		if len(op.Payload) > maxUint16 {
+			return fmt.Errorf("%s too large", TagPayload)
+		}
+
 		// payload tag
 		binary.Write(w, binary.BigEndian, uint16(TagPayload))
 		binary.Write(w, binary.BigEndian, uint16(len(op.Payload)))

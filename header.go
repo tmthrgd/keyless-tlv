@@ -14,7 +14,7 @@ type Header struct {
 	ID           uint32
 }
 
-func (h *Header) Marshal(op *Operation, buf []byte) []byte {
+func (h *Header) Marshal(op *Operation, buf []byte) ([]byte, error) {
 	b := bytes.NewBuffer(buf)
 	b.Grow(HeaderLength + PadTo + 4)
 
@@ -23,12 +23,18 @@ func (h *Header) Marshal(op *Operation, buf []byte) []byte {
 	binary.Write(b, binary.BigEndian, uint16(0)) // length placeholder
 	binary.Write(b, binary.BigEndian, h.ID)
 
-	op.Marshal(b)
+	if err := op.Marshal(b); err != nil {
+		return nil, err
+	}
 
 	out := b.Bytes()
 	binary.BigEndian.PutUint16(out[2:], uint16(len(out)-HeaderLength))
 
-	return out
+	if len(out)-HeaderLength > maxUint16 {
+		return nil, errors.New("body too large")
+	}
+
+	return out, nil
 }
 
 func (h *Header) Unmarshal(in []byte) (rest []byte, err error) {

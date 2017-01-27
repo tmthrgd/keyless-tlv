@@ -119,7 +119,15 @@ func (h *RequestHandler) Handle(r io.Reader) (out []byte, err error) {
 
 	op.SkipPadding = h.SkipPadding
 
-	out = hdr.Marshal(op, in[:0])
+	if out, err = hdr.Marshal(op, in[:0]); err != nil {
+		op.FromError(err)
+		op.SkipPadding = h.SkipPadding
+
+		if out, err = hdr.Marshal(op, in[:0]); err != nil {
+			// should be impossible
+			panic(err)
+		}
+	}
 
 	if &out[0] != &in[0] && cap(in) == bufferLength {
 		for i := range in {
@@ -196,7 +204,15 @@ func (h *RequestHandler) HandleBytes(in []byte) (out []byte, err error) {
 
 	op.SkipPadding = h.SkipPadding
 
-	out = hdr.Marshal(op, in[:0])
+	if out, err = hdr.Marshal(op, in[:0]); err != nil {
+		op.FromError(err)
+		op.SkipPadding = h.SkipPadding
+
+		if out, err = hdr.Marshal(op, in[:0]); err != nil {
+			// should be impossible
+			panic(err)
+		}
+	}
 
 	h.logger().Printf("id: %d, elapsed: %s, request: %d B, response: %d B", hdr.ID,
 		time.Since(start), len(in), len(out))
