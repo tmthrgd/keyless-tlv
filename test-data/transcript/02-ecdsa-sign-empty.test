@@ -1,12 +1,12 @@
-02 00       ; version
-00 06       ; length
+81          ; version
+00 00 06    ; length
 00 00 00 02 ; id
 00 11       ; opcode tag
 00 02       ; length
 00 13       ; ecdsa sign sha1
 ---
-02 00       ; version
-00 0c       ; length
+81          ; version
+00 00 0c    ; length
 00 00 00 02 ; id
 00 11       ; opcode tag
 00 02       ; length

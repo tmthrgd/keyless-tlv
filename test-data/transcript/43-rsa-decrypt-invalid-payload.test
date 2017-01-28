@@ -1,5 +1,5 @@
-02 00                                           ; version
-00 a2                                           ; length
+81                                              ; version
+00 00 a2                                        ; length
 00 00 00 2b                                     ; id
 00 11                                           ; opcode tag
 00 02                                           ; length
@@ -19,8 +19,8 @@ a5 eb 3c c5 ba e8 5a 26 32 43 3d ac b7 bd a2 a5 ; value - corrupt encryption of 
 7f da b8 89 41 74 a5 ca 7c a5 e0 5f 46 2a a6 43 ; ...
 65 ef 24 7a cc 55 59 a5 a5 1d 6d a2 aa 90 35 7b ; ...
 ---
-02 00                                           ; version
-00 0c                                           ; length
+81                                              ; version
+00 00 0c                                        ; length
 00 00 00 2b                                     ; id
 00 11                                           ; opcode tag
 00 02                                           ; length

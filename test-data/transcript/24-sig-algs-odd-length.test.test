@@ -1,12 +1,12 @@
-02 00       ; version
-00 05       ; length
+81          ; version
+00 00 05    ; length
 00 00 00 18 ; id
 00 06       ; signature algorithms tag
 00 01       ; length
 00          ; value
 ---
-02 00       ; version
-00 0c       ; length
+81          ; version
+00 00 0c    ; length
 00 00 00 18 ; id
 00 11       ; opcode tag
 00 02       ; length

@@ -1,5 +1,5 @@
-02 00                                           ; version
-00 a2                                           ; length
+81                                              ; version
+00 00 a2                                        ; length
 00 00 00 20                                     ; id
 00 11                                           ; opcode tag
 00 02                                           ; length
@@ -19,8 +19,8 @@ a3 5e b0 df 0a 3d 0b 09 bf b1 9c 24 8f fb d3 16 ; ...
 ea e4 d1 84 9f 9a 0b 77 27 8e 98 11 b1 60 6a 4b ; ...
 3c d5 b9 f4 d9 4e 6a 65 5b 52 fd 23 0c bb c0 09 ; ...
 ---
-02 00                                           ; version
-00 8a                                           ; length
+81                                              ; version
+00 00 8a                                        ; length
 00 00 00 20                                     ; id
 00 11                                           ; opcode tag
 00 02                                           ; length

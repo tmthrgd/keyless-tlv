@@ -1,5 +1,5 @@
-02 00                                           ; version
-00 26                                           ; length
+81                                              ; version
+00 00 26                                        ; length
 00 00 00 30                                     ; id
 00 11                                           ; opcode tag
 00 02                                           ; length
@@ -12,8 +12,8 @@ c8 45 c1 01 73 0c ce 77 42 14 10 b2 91 3c 18 37 ; value - ski of test-ed25519-ke
 00 04                                           ; length
 74 65 73 74                                     ; value - 'test'
 ---
-02 00                                           ; version
-00 4a                                           ; length
+81                                              ; version
+00 00 4a                                        ; length
 00 00 00 30                                     ; id
 00 11                                           ; opcode tag
 00 02                                           ; length

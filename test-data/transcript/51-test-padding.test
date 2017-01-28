@@ -1,6 +1,6 @@
 # padding: true
-02 00                                           ; version
-04 04                                           ; length
+81                                              ; version
+00 04 04                                        ; length
 00 00 00 33                                     ; id
 00 11                                           ; opcode tag
 00 02                                           ; length
@@ -74,8 +74,8 @@
 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; ...
 00 00 00 00 00 00                               ; ...
 ---
-02 00                                           ; version
-04 04                                           ; length
+81                                              ; version
+00 04 04                                        ; length
 00 00 00 33                                     ; id
 00 11                                           ; opcode tag
 00 02                                           ; length

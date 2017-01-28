@@ -1,5 +1,5 @@
-02 00       ; version
-00 0e       ; length
+81          ; version
+00 00 0e    ; length
 00 00 00 2e ; id
 00 11       ; opcode tag
 00 02       ; length
@@ -8,8 +8,8 @@
 00 04       ; length
 00 00 00 00 ; value
 ---
-02 00       ; version
-00 0a       ; length
+81          ; version
+00 00 0a    ; length
 00 00 00 2e ; id
 00 11       ; opcode tag
 00 02       ; length

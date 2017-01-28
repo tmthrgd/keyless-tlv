@@ -1,5 +1,5 @@
-02 00       ; version
-00 1a       ; length
+81          ; version
+00 00 1a    ; length
 00 00 00 07 ; id
 00 11       ; opcode tag
 00 02       ; length
@@ -11,8 +11,8 @@ a5 a5 a5 a5 ; ...
 a5 a5 a5 a5 ; ...
 a5 a5 a5 a5 ; ...
 ---
-02 00       ; version
-00 0c       ; length
+81          ; version
+00 00 0c    ; length
 00 00 00 07 ; id
 00 11       ; opcode tag
 00 02       ; length

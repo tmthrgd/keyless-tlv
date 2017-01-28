@@ -1,5 +1,5 @@
-02 00                                           ; version
-00 62                                           ; length
+81                                              ; version
+00 00 62                                        ; length
 00 00 00 2a                                     ; id
 00 11                                           ; opcode tag
 00 02                                           ; length
@@ -15,8 +15,8 @@ ee 26 b0 dd 4a f7 e7 49 aa 1a 8e e3 c1 0a e9 92 ; value - sha512 hash of 'test'
 7a c1 85 f8 a0 e1 d5 f8 4f 88 bc 88 7f d6 7b 14 ; ...
 37 32 c3 04 cc 5f a9 ad 8e 6f 57 f5 00 28 a8 ff ; ...
 ---
-02 00                                           ; version
-00 0c                                           ; length
+81                                              ; version
+00 00 0c                                        ; length
 00 00 00 2a                                     ; id
 00 11                                           ; opcode tag
 00 02                                           ; length

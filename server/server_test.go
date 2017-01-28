@@ -365,7 +365,7 @@ func runTestSigningCase(t *testing.T, idx uint32, h crypto.Hash, pub crypto.Publ
 	}
 
 	t.Logf("-> %x", req)
-	t.Logf("<- 020000xx000000%02x0011000200f0001200xx...", idx)
+	t.Logf("<- 810000xx000000%02x0011000200f0001200xx...", idx)
 
 	got, err := handler.HandleBytes(req)
 	if err != nil {
@@ -380,7 +380,7 @@ func runTestSigningCase(t *testing.T, idx uint32, h crypto.Hash, pub crypto.Publ
 	}
 
 	switch {
-	case hdr.Major != keyless.VersionMajor:
+	case hdr.Version != keyless.Version:
 		t.Fatal(keyless.ErrorVersionMismatch)
 	case int(hdr.Length) != len(body):
 		t.Fatal(keyless.WrappedError{keyless.ErrorFormat,

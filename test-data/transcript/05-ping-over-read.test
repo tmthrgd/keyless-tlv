@@ -1,5 +1,5 @@
-02 00       ; version
-00 0a       ; length
+81          ; version
+00 00 0a    ; length
 00 00 00 05 ; id
 00 11       ; opcode tag
 00 02       ; length
@@ -7,8 +7,8 @@
 00 12       ; payload tag
 00 10       ; length
 ---
-02 00       ; version
-00 0c       ; length
+81          ; version
+00 00 0c    ; length
 00 00 00 05 ; id
 00 11       ; opcode tag
 00 02       ; length

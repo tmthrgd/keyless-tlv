@@ -1,5 +1,5 @@
-02 00                                           ; version
-00 42                                           ; length
+81                                              ; version
+00 00 42                                        ; length
 00 00 00 24                                     ; id
 00 11                                           ; opcode tag
 00 02                                           ; length
@@ -13,8 +13,8 @@ f8 8c 1f d9 90 bb 15 9e 26 a2 bb 3c 59 64 9f f5 ; value - ski of test-rsa-key.ke
 9f 86 d0 81 88 4c 7d 65 9a 2f ea a0 c5 5a d0 15 ; value - sha256 hash of 'test'
 a3 bf 4f 1b 2b 0b 82 2c d1 5d 6c 15 b0 f0 0a 08 ; ...
 ---
-02 00                                           ; version
-00 8a                                           ; length
+81                                              ; version
+00 00 8a                                        ; length
 00 00 00 24                                     ; id
 00 11                                           ; opcode tag
 00 02                                           ; length

@@ -1,9 +1,6 @@
 package keyless
 
-const (
-	VersionMajor = 2
-	VersionMinor = 0
-)
+const Version = 0x80 | 1
 
 const maxUint16 = int(^uint16(0))
 

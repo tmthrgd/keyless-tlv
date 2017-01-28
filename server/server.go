@@ -64,7 +64,7 @@ func (h *RequestHandler) Handle(r io.Reader) (out []byte, err error) {
 
 	op := new(keyless.Operation)
 
-	if hdr.Major != keyless.VersionMajor {
+	if hdr.Version != keyless.Version {
 		atomic.AddUint64(&h.Stats.versionErrorss, 1)
 
 		err = keyless.ErrorVersionMismatch
@@ -157,7 +157,7 @@ func (h *RequestHandler) HandleBytes(in []byte) (out []byte, err error) {
 	op := new(keyless.Operation)
 
 	switch {
-	case hdr.Major != keyless.VersionMajor:
+	case hdr.Version != keyless.Version:
 		atomic.AddUint64(&h.Stats.versionErrorss, 1)
 
 		err = keyless.ErrorVersionMismatch
