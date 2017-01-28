@@ -1,8 +1,8 @@
 package server
 
 import (
+	"bytes"
 	"crypto"
-	"errors"
 	"io"
 	"log"
 	"net"
@@ -71,11 +71,11 @@ func (h *RequestHandler) Handle(r io.Reader) (out []byte, err error) {
 	} else {
 		atomic.AddUint64(&h.Stats.requests, 1)
 
-		if hdr.Length <= bufferLength {
+		if hdr.Length == 0 || hdr.Length > bufferLength {
+			in = make([]byte, hdr.Length)
+		} else {
 			in = bufferPool.Get().([]byte)
 			in = in[:hdr.Length]
-		} else {
-			in = make([]byte, hdr.Length)
 		}
 
 		if _, err = io.ReadFull(r, in); err == io.ErrUnexpectedEOF || err == io.EOF {
@@ -119,22 +119,31 @@ func (h *RequestHandler) Handle(r io.Reader) (out []byte, err error) {
 
 	op.SkipPadding = h.SkipPadding
 
-	if out, err = hdr.Marshal(op, in[:0]); err != nil {
+	buf := bufferPool.Get().([]byte)
+	if out, err = hdr.Marshal(op, buf[:0]); err != nil {
 		op.FromError(err)
 		op.SkipPadding = h.SkipPadding
 
-		if out, err = hdr.Marshal(op, in[:0]); err != nil {
+		if out, err = hdr.Marshal(op, buf[:0]); err != nil {
 			// should be impossible
 			panic(err)
 		}
 	}
 
-	if &out[0] != &in[0] && cap(in) == bufferLength {
-		for i := range in {
-			in[i] = 0
+	for i := range in {
+		in[i] = 0
+	}
+
+	if cap(in) == bufferLength {
+		bufferPool.Put(in[:0])
+	}
+
+	if buf := buf[:cap(buf)]; &buf[0] != &out[0] {
+		for i := range buf {
+			buf[i] = 0
 		}
 
-		bufferPool.Put(in[:0])
+		bufferPool.Put(buf[:0])
 	}
 
 	h.logger().Printf("id: %d, elapsed: %s, request: %d B, response: %d B", hdr.ID,
@@ -143,80 +152,7 @@ func (h *RequestHandler) Handle(r io.Reader) (out []byte, err error) {
 }
 
 func (h *RequestHandler) HandleBytes(in []byte) (out []byte, err error) {
-	start := time.Now()
-
-	var hdr keyless.Header
-
-	body, err := hdr.Unmarshal(in)
-	if err != nil {
-		return
-	}
-
-	atomic.AddUint64(&h.Stats.requests, 1)
-
-	op := new(keyless.Operation)
-
-	switch {
-	case hdr.Version != keyless.Version:
-		atomic.AddUint64(&h.Stats.versionErrorss, 1)
-
-		err = keyless.ErrorVersionMismatch
-	case int(hdr.Length) > len(body):
-		err = keyless.WrappedError{keyless.ErrorFormat, io.ErrUnexpectedEOF}
-	case int(hdr.Length) != len(body):
-		err = keyless.WrappedError{keyless.ErrorFormat,
-			errors.New("invalid header length")}
-	default:
-		err = op.Unmarshal(body)
-		if err != nil {
-			atomic.AddUint64(&h.Stats.unmarshal, 1)
-		}
-	}
-
-	if err == nil {
-		h.logger().Printf("id: %d, %v", hdr.ID, op)
-
-		if h.IsAuthorised != nil {
-			err = h.IsAuthorised(op)
-			if keyless.GetErrorCode(err) == keyless.ErrorNotAuthorised {
-				atomic.AddUint64(&h.Stats.unauthorised, 1)
-			}
-		}
-
-		if err == nil {
-			op, err = h.Process(op)
-			if err != nil {
-				atomic.AddUint64(&h.Stats.process, 1)
-			}
-		}
-	}
-
-	if err != nil {
-		if keyless.GetErrorCode(err) == keyless.ErrorFormat {
-			atomic.AddUint64(&h.Stats.formatErrors, 1)
-		}
-
-		h.logger().Printf("id: %d, %v", hdr.ID, err)
-
-		op.FromError(err)
-		err = nil
-	}
-
-	op.SkipPadding = h.SkipPadding
-
-	if out, err = hdr.Marshal(op, in[:0]); err != nil {
-		op.FromError(err)
-		op.SkipPadding = h.SkipPadding
-
-		if out, err = hdr.Marshal(op, in[:0]); err != nil {
-			// should be impossible
-			panic(err)
-		}
-	}
-
-	h.logger().Printf("id: %d, elapsed: %s, request: %d B, response: %d B", hdr.ID,
-		time.Since(start), len(in), len(out))
-	return
+	return h.Handle(bytes.NewReader(in))
 }
 
 func (h *RequestHandler) recv(addr net.Addr) {
@@ -264,6 +200,10 @@ func (h *RequestHandler) ServePacket(conn net.PacketConn) error {
 
 			for i := range buf {
 				buf[i] = 0
+			}
+
+			if cap(out) == bufferLength {
+				bufferPool.Put(out[:0])
 			}
 
 			bufferPool.Put(buf[:0])
