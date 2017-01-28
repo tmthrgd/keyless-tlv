@@ -8,7 +8,7 @@ const (
 	_Tag_name_0 = "TagDigestTagSNITagClientIPTagSKITagServerIPTagSigAlgs"
 	_Tag_name_1 = "TagOpcodeTagPayload"
 	_Tag_name_2 = "TagPadding"
-	_Tag_name_3 = "TagOCSPResponseTagAuthorisation"
+	_Tag_name_3 = "TagOCSPResponse"
 	_Tag_name_4 = "TagECDSACipher"
 )
 
@@ -16,7 +16,7 @@ var (
 	_Tag_index_0 = [...]uint8{0, 9, 15, 26, 32, 43, 53}
 	_Tag_index_1 = [...]uint8{0, 9, 19}
 	_Tag_index_2 = [...]uint8{0, 10}
-	_Tag_index_3 = [...]uint8{0, 15, 31}
+	_Tag_index_3 = [...]uint8{0, 15}
 	_Tag_index_4 = [...]uint8{0, 14}
 )
 
@@ -30,9 +30,8 @@ func (i Tag) String() string {
 		return _Tag_name_1[_Tag_index_1[i]:_Tag_index_1[i+1]]
 	case i == 32:
 		return _Tag_name_2
-	case 257 <= i && i <= 258:
-		i -= 257
-		return _Tag_name_3[_Tag_index_3[i]:_Tag_index_3[i+1]]
+	case i == 257:
+		return _Tag_name_3
 	case i == 49153:
 		return _Tag_name_4
 	default:

@@ -62,7 +62,7 @@ func (w *loggerWriter) Write(p []byte) (n int, err error) {
 }
 
 func isAuthorised(op *keyless.Operation) error {
-	if bytes.Equal(op.Authorisation, []byte("deny")) {
+	if bytes.Equal(op.SNI, []byte("deny.sni.invalid")) {
 		return keyless.ErrorNotAuthorised
 	}
 

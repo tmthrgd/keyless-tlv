@@ -1,9 +1,12 @@
 81          ; version
-00 00 08    ; length
+00 00 14    ; length
 00 00 00 31 ; id
-01 02       ; authorisation tag
-00 04       ; length
-64 65 6e 79 ; value - 'deny'
+00 02       ; sni tag
+00 10       ; length
+64 65 6e 79 ; value - 'deny.sni.invalid'
+2e 73 6e 69 ; ...
+2e 69 6e 76 ; ...
+61 6c 69 64 ; ...
 ---
 81          ; version
 00 00 0c    ; length
