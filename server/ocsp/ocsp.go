@@ -14,37 +14,37 @@ import (
 	"github.com/tmthrgd/keyless/server"
 )
 
-type ocspCahceID [sha1.Size]byte
+type cahceID [sha1.Size]byte
 
-type ocspCacheEntry struct {
+type cacheEntry struct {
 	Bytes    []byte
 	Response *ocsp.Response
 }
 
-func (e *ocspCacheEntry) Valid() bool {
+func (e *cacheEntry) Valid() bool {
 	return e.Response == nil || time.Now().Before(e.Response.NextUpdate)
 }
 
-type OCSPRequester struct {
+type Requester struct {
 	sync.RWMutex
-	cache map[ocspCahceID]*ocspCacheEntry
-	once  map[ocspCahceID]*sync.Once
+	cache map[cahceID]*cacheEntry
+	once  map[cahceID]*sync.Once
 
 	getCertificate server.GetCertFunc
 
-	OCSPRequestOptions *ocsp.RequestOptions
+	RequestOptions *ocsp.RequestOptions
 }
 
-func NewOCSPRequester(getCertificate server.GetCertFunc) *OCSPRequester {
-	return &OCSPRequester{
-		cache: make(map[ocspCahceID]*ocspCacheEntry),
-		once:  make(map[ocspCahceID]*sync.Once),
+func NewRequester(getCertificate server.GetCertFunc) *Requester {
+	return &Requester{
+		cache: make(map[cahceID]*cacheEntry),
+		once:  make(map[cahceID]*sync.Once),
 
 		getCertificate: getCertificate,
 	}
 }
 
-func (or *OCSPRequester) GetCertificate(op *keyless.Operation) (cert *keyless.Certificate, err error) {
+func (or *Requester) GetCertificate(op *keyless.Operation) (cert *keyless.Certificate, err error) {
 	if cert, err = or.getCertificate(op); err != nil || cert.OCSP != nil {
 		return
 	}
@@ -101,8 +101,8 @@ func (or *OCSPRequester) GetCertificate(op *keyless.Operation) (cert *keyless.Ce
 	return
 }
 
-func (or *OCSPRequester) requestOCSP(cert *keyless.Certificate) (entry *ocspCacheEntry, err error) {
-	entry = new(ocspCacheEntry)
+func (or *Requester) requestOCSP(cert *keyless.Certificate) (entry *cacheEntry, err error) {
+	entry = new(cacheEntry)
 
 	x509s, err := cert.PayloadToX509s()
 	if err != nil || len(x509s) < 2 {
@@ -113,7 +113,7 @@ func (or *OCSPRequester) requestOCSP(cert *keyless.Certificate) (entry *ocspCach
 		return
 	}
 
-	ocspReq, err := ocsp.CreateRequest(x509s[0], x509s[1], or.OCSPRequestOptions)
+	ocspReq, err := ocsp.CreateRequest(x509s[0], x509s[1], or.RequestOptions)
 	if err != nil {
 		return
 	}

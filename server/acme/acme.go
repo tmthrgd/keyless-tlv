@@ -28,7 +28,7 @@ var (
 	mustStapleFeatureValue = []byte{0x30, 0x03, 0x02, 0x01, 0x05}
 )
 
-type ACMEClient struct {
+type Client struct {
 	sync.RWMutex
 	keys  map[keyless.SKI]crypto.PrivateKey
 	certs map[keyless.SKI]*keyless.Certificate
@@ -42,8 +42,8 @@ type ACMEClient struct {
 	MustStaple bool
 }
 
-func NewACMEClient(client *acme.Client) *ACMEClient {
-	return &ACMEClient{
+func NewClient(client *acme.Client) *Client {
+	return &Client{
 		keys:  make(map[keyless.SKI]crypto.PrivateKey),
 		certs: make(map[keyless.SKI]*keyless.Certificate),
 		snis:  make(map[string]*keyless.Certificate),
@@ -58,7 +58,7 @@ func NewACMEClient(client *acme.Client) *ACMEClient {
 	}
 }
 
-func (ac *ACMEClient) GetKey(ski keyless.SKI) (priv crypto.PrivateKey, err error) {
+func (ac *Client) GetKey(ski keyless.SKI) (priv crypto.PrivateKey, err error) {
 	ac.RLock()
 	priv, ok := ac.keys[ski]
 	ac.RUnlock()
@@ -70,7 +70,7 @@ func (ac *ACMEClient) GetKey(ski keyless.SKI) (priv crypto.PrivateKey, err error
 	return
 }
 
-func (ac *ACMEClient) GetCertificate(op *keyless.Operation) (cert *keyless.Certificate, err error) {
+func (ac *Client) GetCertificate(op *keyless.Operation) (cert *keyless.Certificate, err error) {
 	var ok bool
 
 	if op.SKI.Valid() {
@@ -135,7 +135,7 @@ func (ac *ACMEClient) GetCertificate(op *keyless.Operation) (cert *keyless.Certi
 	return
 }
 
-func (ac *ACMEClient) requestCertificate(sni []byte) (cert *keyless.Certificate, err error) {
+func (ac *Client) requestCertificate(sni []byte) (cert *keyless.Certificate, err error) {
 	ctx := ac.GetContext(sni)
 
 	if err = ac.verify(ctx, sni); err != nil {
@@ -188,7 +188,7 @@ func (ac *ACMEClient) requestCertificate(sni []byte) (cert *keyless.Certificate,
 	return
 }
 
-func (ac *ACMEClient) verify(ctx context.Context, sni []byte) error {
+func (ac *Client) verify(ctx context.Context, sni []byte) error {
 	authz, err := ac.client.Authorize(ctx, string(sni))
 	if err != nil {
 		return err

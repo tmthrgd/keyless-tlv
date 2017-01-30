@@ -104,7 +104,7 @@ func main() {
 			}
 		}
 
-		ac := kacme.NewACMEClient(&acme.Client{
+		ac := kacme.NewClient(&acme.Client{
 			Key: priv,
 
 			DirectoryURL: acmeURL,
@@ -115,7 +115,7 @@ func main() {
 	}
 
 	if stapleOCSP {
-		ocsp := ocsp.NewOCSPRequester(getCert)
+		ocsp := ocsp.NewRequester(getCert)
 		getCert = ocsp.GetCertificate
 	}
 
