@@ -149,13 +149,13 @@ func (ss *SelfSigner) generateCertificate(sni []byte) (cert *keyless.Certificate
 		return
 	}
 
-	der, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
-	if err != nil {
+	var ders [1][]byte
+	if ders[0], err = x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv); err != nil {
 		return
 	}
 
 	cert = &keyless.Certificate{SKI: ski}
-	cert.SetPayloadFromDER([][]byte{der})
+	cert.SetPayloadFromDER(ders[:])
 
 	ss.Lock()
 	ss.keys[ski] = priv
