@@ -56,7 +56,7 @@ func (cert *Certificate) PayloadToDER() ([][]byte, error) {
 			return nil, ErrorFormat
 		}
 
-		ders, payload = append(ders, payload[2:2+l]), payload[2+l:]
+		ders, payload = append(ders, payload[2:2+l:2+l]), payload[2+l:]
 	}
 
 	if len(payload) != 0 {
