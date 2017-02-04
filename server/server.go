@@ -52,16 +52,17 @@ func (h *RequestHandler) logger() *log.Logger {
 func (h *RequestHandler) Handle(r io.Reader) (out []byte, err error) {
 	start := time.Now()
 
-	in := make([]byte, keyless.HeaderLength)
-	if _, err = io.ReadFull(r, in); err != nil {
+	var hdrBuf [keyless.HeaderLength]byte
+	if _, err = io.ReadFull(r, hdrBuf[:]); err != nil {
 		return
 	}
 
 	var hdr keyless.Header
-	if _, err = hdr.Unmarshal(in); err != nil {
+	if _, err = hdr.Unmarshal(hdrBuf[:]); err != nil {
 		panic(err)
 	}
 
+	var in []byte
 	op := new(keyless.Operation)
 
 	if hdr.Version != keyless.Version {
