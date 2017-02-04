@@ -48,13 +48,13 @@ func (op *Operation) Marshal(ow io.Writer) error {
 	if op.SKI.Valid() {
 		// ski tag
 		binary.Write(w, binary.BigEndian, uint16(TagSKI))
-		binary.Write(w, binary.BigEndian, uint16(len(nilSKI)))
+		binary.Write(w, binary.BigEndian, uint16(len(op.SKI)))
 		w.Write(op.SKI[:])
 	}
 
 	if op.ClientIP != nil {
-		if len(op.ClientIP) > maxUint16 {
-			return fmt.Errorf("%s too large", TagClientIP)
+		if len(op.ClientIP) != net.IPv4len && len(op.ClientIP) != net.IPv6len {
+			return fmt.Errorf("%s should be 4 or 16 bytes, was %d bytes", TagClientIP, len(op.ClientIP))
 		}
 
 		// client ip tag
@@ -64,8 +64,8 @@ func (op *Operation) Marshal(ow io.Writer) error {
 	}
 
 	if op.ServerIP != nil {
-		if len(op.ServerIP) > maxUint16 {
-			return fmt.Errorf("%s too large", TagServerIP)
+		if len(op.ServerIP) != net.IPv4len && len(op.ServerIP) != net.IPv6len {
+			return fmt.Errorf("%s should be 4 or 16 bytes, was %d bytes", TagServerIP, len(op.ServerIP))
 		}
 
 		// server ip tag
