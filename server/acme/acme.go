@@ -30,9 +30,8 @@ var (
 
 type Client struct {
 	sync.RWMutex
-	keys  map[keyless.SKI]crypto.PrivateKey
-	certs map[keyless.SKI]*keyless.Certificate
-	snis  map[string]*keyless.Certificate
+	keys map[keyless.SKI]crypto.PrivateKey
+	snis map[string]*keyless.Certificate
 
 	once map[string]*sync.Once
 
@@ -44,9 +43,8 @@ type Client struct {
 
 func NewClient(client *acme.Client) *Client {
 	return &Client{
-		keys:  make(map[keyless.SKI]crypto.PrivateKey),
-		certs: make(map[keyless.SKI]*keyless.Certificate),
-		snis:  make(map[string]*keyless.Certificate),
+		keys: make(map[keyless.SKI]crypto.PrivateKey),
+		snis: make(map[string]*keyless.Certificate),
 
 		once: make(map[string]*sync.Once),
 
@@ -71,27 +69,13 @@ func (ac *Client) GetKey(ski keyless.SKI) (priv crypto.PrivateKey, err error) {
 }
 
 func (ac *Client) GetCertificate(op *keyless.Operation) (cert *keyless.Certificate, err error) {
-	var ok bool
-
-	if op.SKI.Valid() {
-		ac.RLock()
-		cert, ok = ac.certs[op.SKI]
-		ac.RUnlock()
-
-		if !ok {
-			err = keyless.ErrorCertNotFound
-		}
-
-		return
-	}
-
 	if len(op.SNI) == 0 {
 		err = keyless.ErrorCertNotFound
 		return
 	}
 
 	ac.RLock()
-	cert, ok = ac.snis[string(op.SNI)]
+	cert, ok := ac.snis[string(op.SNI)]
 	ac.RUnlock()
 
 	switch {
@@ -180,7 +164,6 @@ func (ac *Client) requestCertificate(sni []byte) (cert *keyless.Certificate, err
 
 	ac.Lock()
 	ac.keys[ski] = priv
-	ac.certs[ski] = cert
 	ac.snis[string(sni)] = cert
 
 	delete(ac.once, string(sni))
@@ -243,7 +226,6 @@ challenges:
 
 	ac.Lock()
 	ac.keys[ski] = priv
-	ac.certs[ski] = cert2
 	ac.snis[name] = cert2
 	ac.Unlock()
 
@@ -253,7 +235,6 @@ challenges:
 
 	ac.Lock()
 	delete(ac.keys, ski)
-	delete(ac.certs, ski)
 	delete(ac.snis, name)
 	ac.Unlock()
 	return err

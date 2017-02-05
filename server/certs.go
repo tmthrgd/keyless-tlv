@@ -23,14 +23,12 @@ type certMap struct {
 
 type CertLoader struct {
 	sync.RWMutex
-	skis      map[keyless.SKI]*keyless.Certificate
 	snis      map[string]certMap
 	serverIPs map[string]certMap
 }
 
 func NewCertLoader() *CertLoader {
 	return &CertLoader{
-		skis:      make(map[keyless.SKI]*keyless.Certificate),
 		snis:      make(map[string]certMap),
 		serverIPs: make(map[string]certMap),
 	}
@@ -106,7 +104,6 @@ func (c *CertLoader) walker(path string, info os.FileInfo, err error) error {
 	cert.SetPayloadFromX509s(x509s)
 
 	c.Lock()
-	c.skis[ski] = cert
 
 	if dnsname := x509s[0].Subject.CommonName; len(dnsname) != 0 {
 		addCertToMap(c.snis, dnsname, cert, x509s[0])
@@ -129,20 +126,6 @@ func (c *CertLoader) LoadFromDir(dir string) error {
 }
 
 func (c *CertLoader) GetCertificate(op *keyless.Operation) (cert *keyless.Certificate, err error) {
-	var ok bool
-
-	if op.SKI.Valid() {
-		c.RLock()
-		cert, ok = c.skis[op.SKI]
-		c.RUnlock()
-
-		if !ok {
-			err = keyless.ErrorCertNotFound
-		}
-
-		return
-	}
-
 	if len(op.SNI) == 0 && op.ServerIP == nil {
 		err = keyless.ErrorCertNotFound
 		return

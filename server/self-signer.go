@@ -19,9 +19,8 @@ var serialNumberMax = new(big.Int).Lsh(big.NewInt(1), 128)
 
 type SelfSigner struct {
 	sync.RWMutex
-	keys  map[keyless.SKI]crypto.PrivateKey
-	certs map[keyless.SKI]*keyless.Certificate
-	snis  map[string]*keyless.Certificate
+	keys map[keyless.SKI]crypto.PrivateKey
+	snis map[string]*keyless.Certificate
 
 	once map[string]*sync.Once
 
@@ -30,9 +29,8 @@ type SelfSigner struct {
 
 func NewSelfSigner() *SelfSigner {
 	return &SelfSigner{
-		keys:  make(map[keyless.SKI]crypto.PrivateKey),
-		certs: make(map[keyless.SKI]*keyless.Certificate),
-		snis:  make(map[string]*keyless.Certificate),
+		keys: make(map[keyless.SKI]crypto.PrivateKey),
+		snis: make(map[string]*keyless.Certificate),
 
 		once: make(map[string]*sync.Once),
 	}
@@ -51,27 +49,13 @@ func (ss *SelfSigner) GetKey(ski keyless.SKI) (priv crypto.PrivateKey, err error
 }
 
 func (ss *SelfSigner) GetCertificate(op *keyless.Operation) (cert *keyless.Certificate, err error) {
-	var ok bool
-
-	if op.SKI.Valid() {
-		ss.RLock()
-		cert, ok = ss.certs[op.SKI]
-		ss.RUnlock()
-
-		if !ok {
-			err = keyless.ErrorCertNotFound
-		}
-
-		return
-	}
-
 	if len(op.SNI) == 0 {
 		err = keyless.ErrorCertNotFound
 		return
 	}
 
 	ss.RLock()
-	cert, ok = ss.snis[string(op.SNI)]
+	cert, ok := ss.snis[string(op.SNI)]
 	ss.RUnlock()
 
 	if ok {
@@ -159,7 +143,6 @@ func (ss *SelfSigner) generateCertificate(sni []byte) (cert *keyless.Certificate
 
 	ss.Lock()
 	ss.keys[ski] = priv
-	ss.certs[ski] = cert
 	ss.snis[string(sni)] = cert
 
 	delete(ss.once, string(sni))
