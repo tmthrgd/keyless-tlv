@@ -52,7 +52,10 @@ func (h *RequestHandler) Process(in *keyless.Operation) (out *keyless.Operation,
 
 		var cert *keyless.Certificate
 		if cert, err = h.GetCert(in); err == nil {
-			out.SKI, out.Payload, out.OCSPResponse = cert.SKI, cert.Payload, cert.OCSP
+			out.SKI = cert.SKI
+			out.Payload = cert.Payload
+			out.OCSPResponse = cert.OCSP
+			out.SCTList = cert.SCT
 		}
 
 		return

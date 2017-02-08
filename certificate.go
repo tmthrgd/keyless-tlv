@@ -10,6 +10,7 @@ type Certificate struct {
 	SKI     SKI
 	Payload []byte
 	OCSP    []byte
+	SCT     []byte
 }
 
 func (cert *Certificate) SetPayloadFromDER(ders [][]byte) {

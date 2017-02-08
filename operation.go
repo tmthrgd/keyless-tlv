@@ -23,6 +23,7 @@ type Operation struct {
 	SNI                []byte
 
 	OCSPResponse []byte
+	SCTList      []byte
 
 	HasECDSACipher bool
 
@@ -98,6 +99,16 @@ func (op *Operation) Marshal(ow io.Writer) error {
 		binary.Write(w, binary.BigEndian, uint16(TagOCSPResponse))
 		binary.Write(w, binary.BigEndian, uint16(len(op.OCSPResponse)))
 		w.Write(op.OCSPResponse)
+	}
+
+	if op.SCTList != nil {
+		if len(op.SCTList) > maxUint16 {
+			return fmt.Errorf("%s too large", TagSCTList)
+		}
+
+		binary.Write(w, binary.BigEndian, uint16(TagSCTList))
+		binary.Write(w, binary.BigEndian, uint16(len(op.SCTList)))
+		w.Write(op.SCTList)
 	}
 
 	if op.HasECDSACipher {
@@ -188,6 +199,8 @@ func (op *Operation) Unmarshal(in []byte) error {
 		case TagPadding:
 		case TagOCSPResponse:
 			op.OCSPResponse = in[:length:length]
+		case TagSCTList:
+			op.SCTList = in[:length:length]
 		case TagECDSACipher:
 			if length != 1 {
 				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", TagECDSACipher, length)}
