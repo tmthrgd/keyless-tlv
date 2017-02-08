@@ -40,13 +40,11 @@ func (op *Operation) Marshal(ow io.Writer) error {
 	lw := &lenWriter{W: ow}
 	w := &errWriter{W: lw}
 
-	// opcode tag
 	binary.Write(w, binary.BigEndian, uint16(TagOpcode))
 	binary.Write(w, binary.BigEndian, uint16(2))
 	binary.Write(w, binary.BigEndian, uint16(op.Opcode))
 
 	if op.SKI.Valid() {
-		// ski tag
 		binary.Write(w, binary.BigEndian, uint16(TagSKI))
 		binary.Write(w, binary.BigEndian, uint16(len(op.SKI)))
 		w.Write(op.SKI[:])
@@ -57,7 +55,6 @@ func (op *Operation) Marshal(ow io.Writer) error {
 			return fmt.Errorf("%s should be 4 or 16 bytes, was %d bytes", TagClientIP, len(op.ClientIP))
 		}
 
-		// client ip tag
 		binary.Write(w, binary.BigEndian, uint16(TagClientIP))
 		binary.Write(w, binary.BigEndian, uint16(len(op.ClientIP)))
 		w.Write(op.ClientIP)
@@ -68,7 +65,6 @@ func (op *Operation) Marshal(ow io.Writer) error {
 			return fmt.Errorf("%s should be 4 or 16 bytes, was %d bytes", TagServerIP, len(op.ServerIP))
 		}
 
-		// server ip tag
 		binary.Write(w, binary.BigEndian, uint16(TagServerIP))
 		binary.Write(w, binary.BigEndian, uint16(len(op.ServerIP)))
 		w.Write(op.ServerIP)
@@ -79,7 +75,6 @@ func (op *Operation) Marshal(ow io.Writer) error {
 			return fmt.Errorf("%s too large", TagSNI)
 		}
 
-		// sni tag
 		binary.Write(w, binary.BigEndian, uint16(TagSNI))
 		binary.Write(w, binary.BigEndian, uint16(len(op.SNI)))
 		w.Write(op.SNI)
@@ -90,7 +85,6 @@ func (op *Operation) Marshal(ow io.Writer) error {
 			return fmt.Errorf("%s too large", TagSigAlgs)
 		}
 
-		// signature algorithms tag
 		binary.Write(w, binary.BigEndian, uint16(TagSigAlgs))
 		binary.Write(w, binary.BigEndian, uint16(len(op.SigAlgs)))
 		w.Write(op.SigAlgs)
@@ -101,14 +95,12 @@ func (op *Operation) Marshal(ow io.Writer) error {
 			return fmt.Errorf("%s too large", TagOCSPResponse)
 		}
 
-		// ocsp response tag
 		binary.Write(w, binary.BigEndian, uint16(TagOCSPResponse))
 		binary.Write(w, binary.BigEndian, uint16(len(op.OCSPResponse)))
 		w.Write(op.OCSPResponse)
 	}
 
 	if op.HasECDSACipher {
-		// ecdsa cipher tag
 		binary.Write(w, binary.BigEndian, uint16(TagECDSACipher))
 		binary.Write(w, binary.BigEndian, uint16(1))
 		w.Write([]byte{0x01})
@@ -119,7 +111,6 @@ func (op *Operation) Marshal(ow io.Writer) error {
 			return fmt.Errorf("%s too large", TagPayload)
 		}
 
-		// payload tag
 		binary.Write(w, binary.BigEndian, uint16(TagPayload))
 		binary.Write(w, binary.BigEndian, uint16(len(op.Payload)))
 		w.Write(op.Payload)
@@ -128,7 +119,6 @@ func (op *Operation) Marshal(ow io.Writer) error {
 	if !op.SkipPadding && lw.N < PadTo {
 		toPad := PadTo - lw.N
 
-		// padding tag
 		binary.Write(w, binary.BigEndian, uint16(TagPadding))
 		binary.Write(w, binary.BigEndian, uint16(toPad))
 		w.Write(padding[:toPad])
