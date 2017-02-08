@@ -8,7 +8,7 @@ const (
 	_Tag_name_0 = "TagDigestTagSNITagClientIPTagSKITagServerIPTagSigAlgs"
 	_Tag_name_1 = "TagOpcodeTagPayload"
 	_Tag_name_2 = "TagPadding"
-	_Tag_name_3 = "TagOCSPResponseTagSCTList"
+	_Tag_name_3 = "TagOCSPResponseTagSignedCertTimestamps"
 	_Tag_name_4 = "TagECDSACipher"
 )
 
@@ -16,7 +16,7 @@ var (
 	_Tag_index_0 = [...]uint8{0, 9, 15, 26, 32, 43, 53}
 	_Tag_index_1 = [...]uint8{0, 9, 19}
 	_Tag_index_2 = [...]uint8{0, 10}
-	_Tag_index_3 = [...]uint8{0, 15, 25}
+	_Tag_index_3 = [...]uint8{0, 15, 38}
 	_Tag_index_4 = [...]uint8{0, 14}
 )
 

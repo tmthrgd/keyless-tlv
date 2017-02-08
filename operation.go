@@ -22,8 +22,8 @@ type Operation struct {
 	SigAlgs            []byte
 	SNI                []byte
 
-	OCSPResponse []byte
-	SCTList      []byte
+	OCSPResponse         []byte
+	SignedCertTimestamps []byte
 
 	HasECDSACipher bool
 
@@ -101,14 +101,14 @@ func (op *Operation) Marshal(ow io.Writer) error {
 		w.Write(op.OCSPResponse)
 	}
 
-	if op.SCTList != nil {
-		if len(op.SCTList) > maxUint16 {
-			return fmt.Errorf("%s too large", TagSCTList)
+	if op.SignedCertTimestamps != nil {
+		if len(op.SignedCertTimestamps) > maxUint16 {
+			return fmt.Errorf("%s too large", TagSignedCertTimestamps)
 		}
 
-		binary.Write(w, binary.BigEndian, uint16(TagSCTList))
-		binary.Write(w, binary.BigEndian, uint16(len(op.SCTList)))
-		w.Write(op.SCTList)
+		binary.Write(w, binary.BigEndian, uint16(TagSignedCertTimestamps))
+		binary.Write(w, binary.BigEndian, uint16(len(op.SignedCertTimestamps)))
+		w.Write(op.SignedCertTimestamps)
 	}
 
 	if op.HasECDSACipher {
@@ -199,8 +199,8 @@ func (op *Operation) Unmarshal(in []byte) error {
 		case TagPadding:
 		case TagOCSPResponse:
 			op.OCSPResponse = in[:length:length]
-		case TagSCTList:
-			op.SCTList = in[:length:length]
+		case TagSignedCertTimestamps:
+			op.SignedCertTimestamps = in[:length:length]
 		case TagECDSACipher:
 			if length != 1 {
 				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", TagECDSACipher, length)}

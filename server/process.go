@@ -55,7 +55,7 @@ func (h *RequestHandler) Process(in *keyless.Operation) (out *keyless.Operation,
 			out.SKI = cert.SKI
 			out.Payload = cert.Payload
 			out.OCSPResponse = cert.OCSP
-			out.SCTList = cert.SCT
+			out.SignedCertTimestamps = cert.SCT
 		}
 
 		return

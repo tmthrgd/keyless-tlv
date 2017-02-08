@@ -17,8 +17,8 @@ const (
 	TagPadding  Tag = 0x0020 // Padding
 
 	// The range [0x0100, 0xc000) is for tags from our protocol version.
-	TagOCSPResponse Tag = 0x0101 // The OCSP response to staple
-	TagSCTList      Tag = 0x0102 // The SCT list to send to the client
+	TagOCSPResponse         Tag = 0x0101 // The OCSP response to staple
+	TagSignedCertTimestamps Tag = 0x0102 // The SCT list to send to the client
 
 	// The range [0xc000, 0xffff) is reserved for private tags.
 	TagECDSACipher Tag = 0xc001 // One iff ECDSA ciphers are supported
