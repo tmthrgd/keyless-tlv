@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 
 	"golang.org/x/crypto/acme"
@@ -53,20 +54,45 @@ func main() {
 
 	flag.Parse()
 
+	var l net.Listener
 	var conn net.PacketConn
 	var err error
 
-	if reuseport.Available() {
-		conn, err = reuseport.ListenPacket("udp", addr)
+	if strings.HasPrefix(addr, "udp:") {
+		addr := addr[len("udp:"):]
+
+		if reuseport.Available() {
+			conn, err = reuseport.ListenPacket("udp", addr)
+		} else {
+			conn, err = net.ListenPacket("udp", addr)
+		}
+
+		if err != nil {
+			panic(err)
+		}
+
+		defer conn.Close()
+	} else if strings.HasPrefix(addr, "unix:") {
+		if l, err = net.Listen("unix", addr[len("unix:"):]); err != nil {
+			panic(err)
+		}
+
+		defer l.Close()
 	} else {
-		conn, err = net.ListenPacket("udp", addr)
-	}
+		addr := strings.TrimPrefix(addr, "tcp:")
 
-	if err != nil {
-		panic(err)
-	}
+		if reuseport.Available() {
+			l, err = reuseport.Listen("tcp", addr)
+		} else {
+			l, err = net.Listen("tcp", addr)
+		}
 
-	defer conn.Close()
+		if err != nil {
+			panic(err)
+		}
+
+		defer l.Close()
+	}
 
 	if pid != "" {
 		if f, err := os.Create(pid); err != nil {
@@ -153,5 +179,9 @@ func main() {
 
 	log.Printf("listening on %s\n", addr)
 
-	panic(handler.ServePacket(conn))
+	if conn != nil {
+		panic(handler.ServePacket(conn))
+	} else {
+		panic(handler.Serve(l))
+	}
 }

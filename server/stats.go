@@ -6,7 +6,7 @@ import (
 )
 
 type RequestHandlerStats struct {
-	requests uint64
+	connections, requests uint64
 
 	versionErrorss, formatErrors, unauthorised, unmarshal, process uint64
 	unexpectedOps, badOps                                          uint64
@@ -16,6 +16,7 @@ type RequestHandlerStats struct {
 	pings, certRequests, decrypts, signs, rsaOps, ecdsaOps, ed25519Ops uint64
 }
 
+func (s *RequestHandlerStats) Connections() uint64         { return atomic.LoadUint64(&s.connections) }
 func (s *RequestHandlerStats) Requests() uint64            { return atomic.LoadUint64(&s.requests) }
 func (s *RequestHandlerStats) VersionMismatches() uint64   { return atomic.LoadUint64(&s.versionErrorss) }
 func (s *RequestHandlerStats) FormatErrors() uint64        { return atomic.LoadUint64(&s.formatErrors) }
@@ -34,7 +35,8 @@ func (s *RequestHandlerStats) ECDSAOperations() uint64     { return atomic.LoadU
 func (s *RequestHandlerStats) ED25519Operations() uint64   { return atomic.LoadUint64(&s.ed25519Ops) }
 
 func (s *RequestHandlerStats) String() string {
-	return fmt.Sprintf(`Requests:              %d
+	return fmt.Sprintf(`Connections:           %d
+Requests:              %d
 Errors:
  Version Mismatches:   %d
  Format:               %d
@@ -52,7 +54,7 @@ Operations:
  RSA:                  %d
  ECDSA:                %d
  ED25519:              %d`,
-		s.Requests(),
+		s.Connections(), s.Requests(),
 
 		s.VersionMismatches(), s.FormatErrors(), s.UnauthorisedErrors(),
 		s.UnmarshallingErrors(), s.ProcessingErrors(),
@@ -66,14 +68,14 @@ Operations:
 }
 
 func (s *RequestHandlerStats) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`{ requests: "%d", `+
+	return []byte(fmt.Sprintf(`{ connections: "%d", requests: "%d", `+
 		`errors: { version_mismatches: "%d", format: "%d", unauthorised: "%d", `+
 		`unmarshalling: "%d", processing: "%d", `+
 		`unexpected_opcodes: "%d", bad_opcodes: "%d", }, `+
 		`panics: "%d", `+
 		`operations: { pings: "%d", certificate_requests: "%d", decryptions: "%d", `+
 		`signings: "%d", rsa: "%d", ecdsa: "%d", ed25519: "%d" } }`,
-		s.Requests(),
+		s.Connections(), s.Requests(),
 
 		s.VersionMismatches(), s.FormatErrors(), s.UnauthorisedErrors(),
 		s.UnmarshallingErrors(), s.ProcessingErrors(),

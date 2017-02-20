@@ -170,6 +170,85 @@ func (h *RequestHandler) recv(addr net.Addr) {
 	h.logger().Printf("panic serving %v: %v\n%s", addr, err, buf)
 }
 
+func (h *RequestHandler) serve(conn net.Conn) {
+	defer h.recv(conn.RemoteAddr())
+
+	for {
+		out, err := h.Handle(conn)
+		if err != nil {
+			if err == io.EOF {
+				return
+			} else if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				return
+			}
+
+			h.logger().Printf("error: %v", err)
+			return
+		}
+
+		tempDelay := 5 * time.Millisecond
+
+		for {
+			_, err = conn.Write(out)
+			if err == nil {
+				break
+			}
+
+			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+				if tempDelay > time.Second {
+					tempDelay = time.Second
+				}
+
+				time.Sleep(tempDelay)
+				tempDelay *= 2
+			} else {
+				h.logger().Printf("connection error: %v", err)
+			}
+		}
+
+		for i := range out {
+			out[i] = 0
+		}
+
+		if cap(out) == bufferLength {
+			bufferPool.Put(out[:0])
+		}
+	}
+}
+
+func (h *RequestHandler) Serve(l net.Listener) error {
+	var tempDelay time.Duration
+
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+				if tempDelay == 0 {
+					tempDelay = 5 * time.Millisecond
+				} else {
+					tempDelay *= 2
+				}
+
+				if tempDelay > time.Second {
+					tempDelay = time.Second
+				}
+
+				h.logger().Printf("http: Accept error: %v; retrying in %v", err, tempDelay)
+
+				time.Sleep(tempDelay)
+				continue
+			}
+
+			return err
+		}
+
+		tempDelay = 0
+
+		atomic.AddUint64(&h.Stats.connections, 1)
+		go h.serve(conn)
+	}
+}
+
 func (h *RequestHandler) ServePacket(conn net.PacketConn) error {
 	for {
 		buf := bufferPool.Get().([]byte)
