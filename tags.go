@@ -28,4 +28,4 @@ const (
 
 // The number of supported tags. This is used to size the initial map capacity
 // for seen tags in (*Operation).Unmarshal.
-const numOfTags = 11
+const numOfTags = 14
