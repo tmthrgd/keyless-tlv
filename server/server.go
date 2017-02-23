@@ -28,12 +28,12 @@ var stdLogger = log.New(os.Stderr, "", log.LstdFlags)
 
 type GetCertFunc func(op *keyless.Operation) (cert *keyless.Certificate, err error)
 type GetKeyFunc func(ski keyless.SKI) (priv crypto.PrivateKey, err error)
-type GetSealer func(op *keyless.Operation) (aead cipher.AEAD, err error)
+type GetSealerFunc func(op *keyless.Operation) (aead cipher.AEAD, err error)
 
 type RequestHandler struct {
 	GetCert   GetCertFunc
 	GetKey    GetKeyFunc
-	GetSealer GetSealer
+	GetSealer GetSealerFunc
 
 	IsAuthorised keyless.IsAuthorisedFunc
 
