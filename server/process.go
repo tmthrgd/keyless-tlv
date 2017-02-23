@@ -2,6 +2,7 @@ package server
 
 import (
 	"crypto"
+	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
@@ -56,6 +57,37 @@ func (h *RequestHandler) Process(in *keyless.Operation) (out *keyless.Operation,
 			out.Payload = cert.Payload
 			out.OCSPResponse = cert.OCSP
 			out.SignedCertTimestamps = cert.SCT
+		}
+
+		return
+	case keyless.OpSeal, keyless.OpUnseal:
+		if in.Opcode == keyless.OpUnseal {
+			atomic.AddUint64(&h.Stats.unsealOps, 1)
+		} else {
+			atomic.AddUint64(&h.Stats.sealOps, 1)
+		}
+
+		if h.GetSealer == nil {
+			err = keyless.ErrorKeyNotFound
+			return
+		}
+
+		var aead cipher.AEAD
+		if aead, err = h.GetSealer(in); err != nil {
+			return
+		}
+
+		if len(in.Nonce) != aead.NonceSize() {
+			err = keyless.WrappedError{keyless.ErrorCryptoFailed, errors.New("incorrect nonce length given")}
+			return
+		}
+
+		if in.Opcode == keyless.OpUnseal {
+			if out.Payload, err = aead.Open(in.Payload[:0], in.Nonce, in.Payload, in.AdditionalData); err != nil {
+				err = keyless.WrappedError{keyless.ErrorCryptoFailed, err}
+			}
+		} else {
+			out.Payload = aead.Seal(in.Payload[:0], in.Nonce, in.Payload, in.AdditionalData)
 		}
 
 		return

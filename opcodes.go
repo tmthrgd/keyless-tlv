@@ -35,6 +35,10 @@ const (
 	// Request a certificate and chain
 	OpGetCertificate Op = 0x0020
 
+	// Encrypt a blob of data
+	OpSeal   Op = 0x0021
+	OpUnseal Op = 0x0022
+
 	// [Deprecated]: A test message
 	OpPing Op = 0x00F1
 	OpPong Op = 0x00F2

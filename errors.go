@@ -15,6 +15,7 @@ const (
 	ErrorFormat           Error = 0x0007 // Malformed message
 	ErrorInternal         Error = 0x0008 // Other internal error
 	ErrorCertNotFound     Error = 0x0009 // Certificate not found
+	ErrorExpired          Error = 0x0010 // The sealing key has expired
 
 	// The range [0x0100, 0xc000) is for errors from our protocol version.
 	ErrorNotAuthorised Error = 0x0101 // The client was not authorised to perform that request.
@@ -46,6 +47,8 @@ func (e Error) Error() string {
 		return "certificate not found"
 	case ErrorNotAuthorised:
 		return "client not authorised"
+	case ErrorExpired:
+		return "sealing key expired"
 	default:
 		return fmt.Sprintf("Error(%d)", e)
 	}

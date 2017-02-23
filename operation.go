@@ -24,6 +24,8 @@ type Operation struct {
 
 	OCSPResponse         []byte
 	SignedCertTimestamps []byte
+	Nonce                []byte
+	AdditionalData       []byte
 
 	HasECDSACipher bool
 
@@ -109,6 +111,26 @@ func (op *Operation) Marshal(ow io.Writer) error {
 		binary.Write(w, binary.BigEndian, uint16(TagSignedCertTimestamps))
 		binary.Write(w, binary.BigEndian, uint16(len(op.SignedCertTimestamps)))
 		w.Write(op.SignedCertTimestamps)
+	}
+
+	if op.Nonce != nil {
+		if len(op.Nonce) > maxUint16 {
+			return fmt.Errorf("%s too large", TagNonce)
+		}
+
+		binary.Write(w, binary.BigEndian, uint16(TagNonce))
+		binary.Write(w, binary.BigEndian, uint16(len(op.Nonce)))
+		w.Write(op.Nonce)
+	}
+
+	if op.AdditionalData != nil {
+		if len(op.AdditionalData) > maxUint16 {
+			return fmt.Errorf("%s too large", TagAdditionalData)
+		}
+
+		binary.Write(w, binary.BigEndian, uint16(TagAdditionalData))
+		binary.Write(w, binary.BigEndian, uint16(len(op.AdditionalData)))
+		w.Write(op.AdditionalData)
 	}
 
 	if op.HasECDSACipher {
@@ -201,6 +223,10 @@ func (op *Operation) Unmarshal(in []byte) error {
 			op.OCSPResponse = in[:length:length]
 		case TagSignedCertTimestamps:
 			op.SignedCertTimestamps = in[:length:length]
+		case TagNonce:
+			op.Nonce = in[:length:length]
+		case TagAdditionalData:
+			op.AdditionalData = in[:length:length]
 		case TagECDSACipher:
 			if length != 1 {
 				return WrappedError{ErrorFormat, fmt.Errorf("%s should be 1 byte, was %d bytes", TagECDSACipher, length)}

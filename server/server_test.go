@@ -7,6 +7,8 @@ package server
 import (
 	"bytes"
 	"crypto"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"encoding/asn1"
@@ -26,6 +28,7 @@ import (
 var (
 	rsaKeySKI   = keyless.SKI{0xf8, 0x8c, 0x1f, 0xd9, 0x90, 0xbb, 0x15, 0x9e, 0x26, 0xa2, 0xbb, 0x3c, 0x59, 0x64, 0x9f, 0xf5, 0x69, 0xea, 0xda, 0xad}
 	ecdsaKeySKI = keyless.SKI{0x00, 0x82, 0x62, 0x7c, 0x92, 0xe8, 0xc4, 0x6c, 0x8c, 0x05, 0x71, 0x3f, 0x0a, 0x70, 0xeb, 0x2e, 0x09, 0xf9, 0x63, 0xc1}
+	aesGCMSKI   = keyless.SKI{'A', 'E', 'S', '-', 'G', 'C', 'M', ' ', 'T', 'e', 's', 't', ' ', 'S', 'e', 'a', 'l', 'e', 'r', ' '}
 )
 
 func parseTestCase(path string) (request, response []byte, meta map[interface{}]interface{}, err error) {
@@ -69,6 +72,19 @@ func isAuthorised(op *keyless.Operation) error {
 	return nil
 }
 
+func getSealer(op *keyless.Operation) (cipher.AEAD, error) {
+	if op.SKI != aesGCMSKI {
+		return nil, keyless.ErrorKeyNotFound
+	}
+
+	c, err := aes.NewCipher(make([]byte, 16))
+	if err != nil {
+		return nil, err
+	}
+
+	return cipher.NewGCM(c)
+}
+
 func TestRunner(t *testing.T) {
 	runner(t)
 }
@@ -92,8 +108,9 @@ func runner(tb testing.TB) {
 	}
 
 	handler := &RequestHandler{
-		GetCert: certs.GetCertificate,
-		GetKey:  keys.GetKey,
+		GetCert:   certs.GetCertificate,
+		GetKey:    keys.GetKey,
+		GetSealer: getSealer,
 
 		IsAuthorised: isAuthorised,
 
@@ -226,8 +243,9 @@ func signing(tb testing.TB) {
 	}
 
 	handler := &RequestHandler{
-		GetCert: certs.GetCertificate,
-		GetKey:  keys.GetKey,
+		GetCert:   certs.GetCertificate,
+		GetKey:    keys.GetKey,
+		GetSealer: getSealer,
 
 		IsAuthorised: isAuthorised,
 

@@ -14,6 +14,7 @@ type RequestHandlerStats struct {
 	panics uint64
 
 	pings, certRequests, decrypts, signs, rsaOps, ecdsaOps, ed25519Ops uint64
+	sealOps, unsealOps                                                 uint64
 }
 
 func (s *RequestHandlerStats) Connections() uint64         { return atomic.LoadUint64(&s.connections) }
@@ -33,6 +34,8 @@ func (s *RequestHandlerStats) Signings() uint64            { return atomic.LoadU
 func (s *RequestHandlerStats) RSAOperations() uint64       { return atomic.LoadUint64(&s.rsaOps) }
 func (s *RequestHandlerStats) ECDSAOperations() uint64     { return atomic.LoadUint64(&s.ecdsaOps) }
 func (s *RequestHandlerStats) ED25519Operations() uint64   { return atomic.LoadUint64(&s.ed25519Ops) }
+func (s *RequestHandlerStats) SealOperations() uint64      { return atomic.LoadUint64(&s.sealOps) }
+func (s *RequestHandlerStats) UnsealOperations() uint64    { return atomic.LoadUint64(&s.unsealOps) }
 
 func (s *RequestHandlerStats) String() string {
 	return fmt.Sprintf(`Connections:           %d
@@ -53,7 +56,9 @@ Operations:
  Signings:             %d
  RSA:                  %d
  ECDSA:                %d
- ED25519:              %d`,
+ ED25519:              %d
+ Seal:                 %d
+ Unseal:               %d`,
 		s.Connections(), s.Requests(),
 
 		s.VersionMismatches(), s.FormatErrors(), s.UnauthorisedErrors(),
@@ -64,7 +69,7 @@ Operations:
 
 		s.Pings(), s.CertificateRequests(), s.Decryptions(),
 		s.Signings(), s.RSAOperations(), s.ECDSAOperations(),
-		s.ED25519Operations())
+		s.ED25519Operations(), s.SealOperations(), s.UnsealOperations())
 }
 
 func (s *RequestHandlerStats) MarshalJSON() ([]byte, error) {
@@ -74,7 +79,7 @@ func (s *RequestHandlerStats) MarshalJSON() ([]byte, error) {
 		`unexpected_opcodes: "%d", bad_opcodes: "%d", }, `+
 		`panics: "%d", `+
 		`operations: { pings: "%d", certificate_requests: "%d", decryptions: "%d", `+
-		`signings: "%d", rsa: "%d", ecdsa: "%d", ed25519: "%d" } }`,
+		`signings: "%d", rsa: "%d", ecdsa: "%d", ed25519: "%d", seal: "%d", unseal: "%d" } }`,
 		s.Connections(), s.Requests(),
 
 		s.VersionMismatches(), s.FormatErrors(), s.UnauthorisedErrors(),
@@ -85,7 +90,7 @@ func (s *RequestHandlerStats) MarshalJSON() ([]byte, error) {
 
 		s.Pings(), s.CertificateRequests(), s.Decryptions(),
 		s.Signings(), s.RSAOperations(), s.ECDSAOperations(),
-		s.ED25519Operations())), nil
+		s.ED25519Operations(), s.SealOperations(), s.UnsealOperations())), nil
 }
 
 type SelfSignerStats struct {
