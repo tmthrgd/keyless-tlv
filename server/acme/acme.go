@@ -20,7 +20,7 @@ import (
 	"golang.org/x/crypto/acme"
 	"golang.org/x/net/context"
 
-	"github.com/tmthrgd/keyless"
+	"github.com/tmthrgd/keyless-tlv"
 )
 
 var (

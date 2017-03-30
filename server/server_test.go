@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmthrgd/keyless"
+	"github.com/tmthrgd/keyless-tlv"
 	"github.com/tmthrgd/transcript-parser"
 )
 

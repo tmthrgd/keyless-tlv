@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/tmthrgd/keyless"
+	"github.com/tmthrgd/keyless-tlv"
 )
 
 const bufferLength = 2 * 1024

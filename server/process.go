@@ -11,7 +11,7 @@ import (
 
 	"golang.org/x/crypto/ed25519"
 
-	"github.com/tmthrgd/keyless"
+	"github.com/tmthrgd/keyless-tlv"
 )
 
 type RSARawDecryptOptions struct{}

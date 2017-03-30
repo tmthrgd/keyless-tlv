@@ -10,8 +10,8 @@ import (
 
 	"golang.org/x/crypto/ocsp"
 
-	"github.com/tmthrgd/keyless"
-	"github.com/tmthrgd/keyless/server"
+	"github.com/tmthrgd/keyless-tlv"
+	"github.com/tmthrgd/keyless-tlv/server"
 )
 
 type cahceID [sha1.Size]byte

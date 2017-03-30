@@ -17,9 +17,9 @@ import (
 	"github.com/cloudflare/cfssl/helpers"
 	"github.com/cloudflare/cfssl/helpers/derhelpers"
 	"github.com/jbenet/go-reuseport"
-	"github.com/tmthrgd/keyless/server"
-	kacme "github.com/tmthrgd/keyless/server/acme"
-	"github.com/tmthrgd/keyless/server/ocsp"
+	"github.com/tmthrgd/keyless-tlv/server"
+	kacme "github.com/tmthrgd/keyless-tlv/server/acme"
+	"github.com/tmthrgd/keyless-tlv/server/ocsp"
 )
 
 func init() {

@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/tmthrgd/keyless"
+	"github.com/tmthrgd/keyless-tlv"
 )
 
 var serialNumberMax = new(big.Int).Lsh(big.NewInt(1), 128)

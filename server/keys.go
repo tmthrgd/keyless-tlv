@@ -14,7 +14,7 @@ import (
 
 	"github.com/cloudflare/cfssl/helpers"
 	"github.com/cloudflare/cfssl/helpers/derhelpers"
-	"github.com/tmthrgd/keyless"
+	"github.com/tmthrgd/keyless-tlv"
 )
 
 var keyExt = regexp.MustCompile(`.+\.key`)

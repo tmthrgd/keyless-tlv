@@ -14,7 +14,7 @@ import (
 	"sync"
 
 	"github.com/cloudflare/cfssl/helpers"
-	"github.com/tmthrgd/keyless"
+	"github.com/tmthrgd/keyless-tlv"
 )
 
 type certMap struct {

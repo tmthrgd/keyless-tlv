@@ -4,7 +4,7 @@ import (
 	"crypto"
 	"crypto/cipher"
 
-	"github.com/tmthrgd/keyless"
+	"github.com/tmthrgd/keyless-tlv"
 )
 
 type GetCertChain []GetCertFunc
